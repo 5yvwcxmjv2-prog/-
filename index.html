@@ -40,6 +40,10 @@
       border: none;
       cursor: pointer;
     }
+
+    #undoBtn {
+      display: none; /* 最初は非表示 */
+    }
   </style>
 </head>
 <body>
@@ -52,13 +56,14 @@
 
 <button onclick="copyText()">コピー</button>
 <button onclick="clearText()">クリア</button>
-<button onclick="undoClear()">元に戻す</button>
+<button id="undoBtn" onclick="undoClear()">元に戻す</button>
 
 <script>
   const text = document.getElementById("text");
   const count = document.getElementById("count");
+  const undoBtn = document.getElementById("undoBtn");
 
-  let lastText = ""; // 直前の状態
+  let lastText = "";
 
   // 初期ロード
   const saved = localStorage.getItem("draft");
@@ -83,15 +88,16 @@
   }
 
   function clearText() {
-    // 消す前に保存（ここ重要）
+    if (!confirm("本当に消しますか？")) return;
+
     lastText = text.value;
-
-
-if (!confirm("本当に消しますか？")) return;
 
     text.value = "";
     localStorage.removeItem("draft");
     updateCount();
+
+    // 元に戻すボタン表示
+    undoBtn.style.display = "inline-block";
   }
 
   function undoClear() {
@@ -99,6 +105,9 @@ if (!confirm("本当に消しますか？")) return;
       text.value = lastText;
       localStorage.setItem("draft", lastText);
       updateCount();
+
+      // 使ったらまた隠す
+      undoBtn.style.display = "none";
     }
   }
 </script>
