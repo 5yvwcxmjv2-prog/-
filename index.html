@@ -2,85 +2,70 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>腕立てカウンター</title>
+  <title>文字数カウンター</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
       margin: 0;
-      height: 100vh;
-      background: #111;
-      display: flex;
-      justify-content: center;
-      align-items: center;
       font-family: Arial;
-      user-select: none;
-      touch-action: manipulation;
+      background: #111;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    textarea {
+      width: 90%;
+      max-width: 600px;
+      height: 200px;
+      font-size: 18px;
+      padding: 10px;
+      border-radius: 10px;
+      border: none;
+      outline: none;
     }
 
     #count {
-      font-size: 80px;
-      color: white;
+      font-size: 40px;
+      margin: 20px;
     }
 
-    #reset {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      font-size: 14px;
-      padding: 10px 15px;
-      z-index: 10;
+    .sub {
+      font-size: 16px;
+      opacity: 0.7;
     }
-
-    html, body {
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  touch-action: none;
-}
   </style>
 </head>
 <body>
 
+<h1>文字数カウンター</h1>
+
+<textarea id="text" placeholder="ここに入力..."></textarea>
+
 <div id="count">0</div>
-<button id="reset">リセット</button>
+<div class="sub" id="detail"></div>
 
 <script>
-  let count = Number(localStorage.getItem("pushup")) || 0;
-  const countDisplay = document.getElementById("count");
-  countDisplay.innerText = count;
+  const text = document.getElementById("text");
+  const count = document.getElementById("count");
+  const detail = document.getElementById("detail");
 
-  // 音用
+  text.addEventListener("input", () => {
+    const value = text.value;
 
-const audio = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
+    // 全文字数
+    const total = value.length;
 
+    // 空白なし
+    const noSpace = value.replace(/\s/g, "").length;
 
- function countUp() {
-    count++;
-    countDisplay.innerText = count;
-    localStorage.setItem("pushup", count);
+    // 行数
+    const lines = value.split("\n").length;
 
-    // 音
-    audio.currentTime = 0;
-    audio.play();
-
-    // 振動
-    if (navigator.vibrate) {
-      navigator.vibrate(30);
-    }
-  }
-
-  // 画面どこでもタップでカウント
-  document.body.addEventListener("click", (e) => {
-    // リセットボタン押したときはカウントしない
-    if (e.target.id === "reset") return;
-    countUp();
-  });
-
-  // リセット
-  document.getElementById("reset").addEventListener("click", () => {
-    count = 0;
-    countDisplay.innerText = count;
-    localStorage.setItem("pushup", count);
+    count.innerText = total;
+    detail.innerText = `空白なし: ${noSpace} ｜ 行数: ${lines}`;
   });
 </script>
 
