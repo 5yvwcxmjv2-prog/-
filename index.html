@@ -17,11 +17,11 @@
     }
 
     textarea {
-      width: 90%;
+      width: 95%;
       max-width: 600px;
       height: 200px;
       font-size: 18px;
-      padding: 10px;
+      padding: 12px;
       border-radius: 10px;
       border: none;
       outline: none;
@@ -32,9 +32,13 @@
       margin: 20px;
     }
 
-    .sub {
-      font-size: 16px;
-      opacity: 0.7;
+    button {
+      margin: 5px;
+      padding: 10px 20px;
+      font-size: 14px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -44,29 +48,59 @@
 
 <textarea id="text" placeholder="ここに入力..."></textarea>
 
-<div id="count">0</div>
-<div class="sub" id="detail"></div>
+<div id="count">0文字</div>
+
+<button onclick="copyText()">コピー</button>
+<button onclick="clearText()">クリア</button>
+<button onclick="undoClear()">元に戻す</button>
 
 <script>
   const text = document.getElementById("text");
   const count = document.getElementById("count");
-  const detail = document.getElementById("detail");
 
+  let lastText = ""; // 直前の状態
+
+  // 初期ロード
+  const saved = localStorage.getItem("draft");
+  if (saved) {
+    text.value = saved;
+  }
+
+  updateCount();
+
+  // 入力時
   text.addEventListener("input", () => {
-    const value = text.value;
-
-    // 全文字数
-    const total = value.length;
-
-    // 空白なし
-    const noSpace = value.replace(/\s/g, "").length;
-
-    // 行数
-    const lines = value.split("\n").length;
-
-    count.innerText = total;
-    detail.innerText = `空白なし: ${noSpace} ｜ 行数: ${lines}`;
+    localStorage.setItem("draft", text.value);
+    updateCount();
   });
+
+  function updateCount() {
+    count.innerText = text.value.length + "文字";
+  }
+
+  function copyText() {
+    navigator.clipboard.writeText(text.value);
+  }
+
+  function clearText() {
+    // 消す前に保存（ここ重要）
+    lastText = text.value;
+
+
+if (!confirm("本当に消しますか？")) return;
+
+    text.value = "";
+    localStorage.removeItem("draft");
+    updateCount();
+  }
+
+  function undoClear() {
+    if (lastText) {
+      text.value = lastText;
+      localStorage.setItem("draft", lastText);
+      updateCount();
+    }
+  }
 </script>
 
 </body>
