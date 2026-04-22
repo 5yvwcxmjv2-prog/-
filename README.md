@@ -1,1 +1,81 @@
-# -
+# -<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>腕立てカウンター</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      background: #111;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: Arial;
+      user-select: none;
+      touch-action: manipulation;
+    }
+
+    #count {
+      font-size: 80px;
+      color: white;
+    }
+
+    #reset {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      font-size: 14px;
+      padding: 10px 15px;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+
+<div id="count">0</div>
+<button id="reset">リセット</button>
+
+<script>
+  let count = Number(localStorage.getItem("pushup")) || 0;
+  const countDisplay = document.getElementById("count");
+  countDisplay.innerText = count;
+
+  // 音用
+
+const audio = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
+
+
+ function countUp() {
+    count++;
+    countDisplay.innerText = count;
+    localStorage.setItem("pushup", count);
+
+    // 音
+    audio.currentTime = 0;
+    audio.play();
+
+    // 振動
+    if (navigator.vibrate) {
+      navigator.vibrate(30);
+    }
+  }
+
+  // 画面どこでもタップでカウント
+  document.body.addEventListener("click", (e) => {
+    // リセットボタン押したときはカウントしない
+    if (e.target.id === "reset") return;
+    countUp();
+  });
+
+  // リセット
+  document.getElementById("reset").addEventListener("click", () => {
+    count = 0;
+    countDisplay.innerText = count;
+    localStorage.setItem("pushup", count);
+  });
+</script>
+
+</body>
+</html>
