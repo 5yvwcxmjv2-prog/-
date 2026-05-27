@@ -2,15 +2,23 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>マイ英単語帳 Dual Mode</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>マイ英単語帳 Dual Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            -webkit-tap-highlight-color: transparent; /* スマホでタップした時の青い影を消す */
+        }
+        /* ボタンを押しやすくするアクティブエフェクト */
+        button:active {
+            transform: scale(0.98);
+            opacity: 0.9;
+        }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen pb-12">
+<body class="bg-slate-50 min-h-screen pb-12 select-none">
 
     <header class="bg-indigo-600 text-white py-6 px-4 shadow-md mb-6">
         <div class="max-w-md mx-auto text-center">
@@ -23,7 +31,7 @@
         
         <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mb-6">
             <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">単語帳モードを選択</label>
-            <select id="modeSelect" onchange="changeMode()" class="w-full bg-slate-100 px-3 py-2.5 rounded-xl font-bold text-slate-700 border-none focus:ring-2 focus:ring-indigo-500 text-sm">
+            <select id="modeSelect" onchange="changeMode()" class="w-full bg-slate-100 px-3 py-3 rounded-xl font-bold text-slate-700 border-none focus:ring-2 focus:ring-indigo-500 text-base">
                 <option value="normal">🔒 通常モード (自分で管理)</option>
                 <option value="ebbinghaus">🧠 忘却曲線モード (3日後に自動復活)</option>
             </select>
@@ -31,20 +39,20 @@
         </div>
         
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-6">
-            <div class="space-y-3">
-                <input type="text" id="wordInput" placeholder="英単語 (例: evaluate)" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-lg">
-                <input type="text" id="meaningInput" placeholder="意味 (例: 評価する)" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base">
-                <button onclick="addWord()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl transition duration-200 shadow-sm">
+            <div class="space-y-4">
+                <input type="text" id="wordInput" placeholder="英単語 (例: evaluate)" class="w-full px-4 py-3.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-lg">
+                <input type="text" id="meaningInput" placeholder="意味 (例: 評価する)" class="w-full px-4 py-3.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base">
+                <button id="btnAddWord" class="w-full bg-indigo-600 text-white font-bold py-4 rounded-xl transition duration-150 shadow-sm text-base active:bg-indigo-700">
                     単語帳に追加する
                 </button>
             </div>
         </div>
 
         <div class="bg-slate-200 p-1 rounded-xl flex mb-6">
-            <button id="tabLearning" onclick="switchTab('learning')" class="w-1/2 py-2 text-sm font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm">
+            <button id="tabLearning" class="w-1/2 py-3 text-sm font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm">
                 未習得 (<span id="countLearning">0</span>)
             </button>
-            <button id="tabMastered" onclick="switchTab('mastered')" class="w-1/2 py-2 text-sm font-bold rounded-lg transition-all text-slate-600 hover:text-slate-800">
+            <button id="tabMastered" class="w-1/2 py-3 text-sm font-bold rounded-lg transition-all text-slate-600">
                 習得済み 🎉 (<span id="countMastered">0</span>)
             </button>
         </div>
@@ -55,14 +63,31 @@
     </main>
 
     <script>
-        // データ構造の準備
-        // アプリ共通の単語データ (モードが違ってもデータは共通。動きだけが変わります)
-        let words = JSON.parse(localStorage.getItem('myDualWords')) || [];
+        let words = JSON.parse(localStorage.getItem('myDualProWords')) || [];
         let currentTab = 'learning';
-        let currentMode = 'normal'; // 初期モードは通常
+        let currentMode = 'normal';
 
         // アプリ起動時に忘却曲線の判定を走らせる
         checkEbbinghausEffect();
+
+        // スマホのタップイベントを確実につなぐための補助関数
+        function bindClick(elementId, callback) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            // touchstartとclickの両方に対応し、二重起動を防ぐ
+            let moved = false;
+            el.addEventListener('touchmove', () => { moved = true; });
+            el.addEventListener('touchend', (e) => {
+                if (!moved) {
+                    e.preventDefault();
+                    callback();
+                }
+                moved = false;
+            });
+            el.addEventListener('click', (e) => {
+                callback();
+            });
+        }
 
         function renderWords() {
             const listElement = document.getElementById('wordList');
@@ -90,39 +115,53 @@
                 const originalIndex = words.findIndex(w => w.word === item.word && w.meaning === item.meaning);
                 
                 const card = document.createElement('div');
-                card.className = "bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex justify-between items-center animate-fade-in";
+                card.className = "bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex justify-between items-center";
                 
+                const buttonId = `action-btn-${originalIndex}`;
                 const actionButton = currentTab === 'learning' 
-                    ? `<button onclick="masterWord(${originalIndex})" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-600 font-bold p-3 rounded-xl transition-colors text-sm flex items-center gap-1">✓ 覚えた</button>`
-                    : `<button onclick="unmasterWord(${originalIndex})" class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium p-2 text-xs rounded-lg transition-colors">未習得に戻す</button>`;
+                    ? `<button id="${buttonId}" class="bg-emerald-50 active:bg-emerald-200 text-emerald-600 font-bold py-3 px-4 rounded-xl transition-colors text-sm flex items-center gap-1">✓ 覚えた</button>`
+                    : `<button id="${buttonId}" class="bg-slate-100 active:bg-slate-300 text-slate-600 font-medium py-2 px-3 text-xs rounded-lg transition-colors">未習得に戻す</button>`;
 
-                const meaningClass = "text-indigo-600 font-medium mt-1 transition-all duration-200 blur-sm select-none cursor-pointer"; 
-                const meaningAttr = `onclick="toggleMeaning(${originalIndex})"`;
+                const meaningClass = "text-indigo-600 font-medium mt-1 transition-all duration-200 blur-sm select-none cursor-pointer p-1"; 
+                const meaningId = `meaning-${originalIndex}`;
 
-                // 忘却曲線モードで、習得済みの場合は経過時間をバッジで出す（デバッグ・確認用）
                 let timeBadge = "";
                 if(currentMode === 'ebbinghaus' && item.status === 'mastered' && item.masteredAt) {
                     timeBadge = `<span class="text-[9px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded ml-2 font-mono">3日後に自動復習</span>`;
                 }
 
                 card.innerHTML = `
-                    <div>
+                    <div class="flex-1 pr-2">
                         <div class="flex items-center">
                             <p class="text-xl font-bold text-slate-900">${item.word}</p>
                             ${timeBadge}
                         </div>
-                        <p id="meaning-${originalIndex}" class="${meaningClass}" ${meaningAttr}>
+                        <p id="${meaningId}" class="${meaningClass}">
                             ${item.meaning}
                         </p>
                         <p class="text-[10px] text-slate-400 mt-1">タップして意味を表示/非表示</p>
                     </div>
-                    <div>${actionButton}</div>
+                    <div class="flex-shrink-0">${actionButton}</div>
                 `;
                 listElement.appendChild(card);
+
+                // 動的に作ったボタンとボカシエリアにタップイベントを設定
+                bindClick(buttonId, () => {
+                    if (currentTab === 'learning') {
+                        masterWord(originalIndex);
+                    } else {
+                        unmasterWord(originalIndex);
+                    }
+                });
+
+                bindClick(meaningId, () => {
+                    const element = document.getElementById(meaningId);
+                    if(element) element.classList.toggle('blur-sm');
+                });
             });
         }
 
-        // 🧠 【重要】忘却曲線モードの裏側処理
+        // 🧠 忘却曲線判定（3日後 = 72時間）
         function checkEbbinghausEffect() {
             if (currentMode !== 'ebbinghaus') return;
 
@@ -130,13 +169,12 @@
             let updated = false;
 
             words.forEach((word) => {
-                // 習得済み、かつ保存された時間がある場合
                 if (word.status === 'mastered' && word.masteredAt) {
                     const elapsed = now - word.masteredAt;
-                    const threeDaysMs = 72 * 60 * 60 * 1000;                   
-                    // 【テスト用ヒント】ここを 10 * 1000 に書き換えると「10秒後」に自動復活するテストができます！
-                    if (elapsed >= oneDayMs) {
-                        word.status = 'learning'; // 自動で未習得に戻す
+                    const threeDaysMs = 72 * 60 * 60 * 1000; // 3日後（72時間）に修正
+                    
+                    if (elapsed >= threeDaysMs) {
+                        word.status = 'learning'; 
                         word.masteredAt = null;
                         updated = true;
                     }
@@ -148,7 +186,6 @@
             }
         }
 
-        // モードが切り替わった時
         function changeMode() {
             const select = document.getElementById('modeSelect');
             const desc = document.getElementById('modeDesc');
@@ -157,13 +194,12 @@
             if (currentMode === 'normal') {
                 desc.innerText = "※通常モード中：覚えた単語は勝手に戻りません。";
             } else {
-                desc.innerText = "※忘却曲線モード中：習得済みにしてから72時間後に自動で未習得へ戻ります。";
-                checkEbbinghausEffect(); // モードONにした瞬間に判定
+                desc.innerText = "※忘却曲線モード中：習得済みにしてから3日後（72時間後）に自動で未習得へ戻ります。";
+                checkEbbinghausEffect();
             }
             renderWords();
         }
 
-        // 単語追加
         function addWord() {
             const wordInput = document.getElementById('wordInput');
             const meaningInput = document.getElementById('meaningInput');
@@ -182,7 +218,7 @@
                 word: wordInput.value.trim(),
                 meaning: meaningInput.value.trim(),
                 status: 'learning',
-                masteredAt: null // 習得した時間を記録する用の空っぽの箱
+                masteredAt: null
             });
 
             currentTab = 'learning';
@@ -191,40 +227,31 @@
             
             wordInput.value = '';
             meaningInput.value = '';
-            wordInput.focus();
         }
 
-        // 習得済みにする
         function masterWord(index) {
             words[index].status = 'mastered';
-            // 現在の時間をミリ秒で記録する
             words[index].masteredAt = new Date().getTime();
             saveAndRefresh();
         }
 
-        // 未習得に戻す
         function unmasterWord(index) {
             words[index].status = 'learning';
             words[index].masteredAt = null;
             saveAndRefresh();
         }
 
-        // 赤シート切り替え
-        function toggleMeaning(index) {
-            const element = document.getElementById(`meaning-${index}`);
-            if(element) element.classList.toggle('blur-sm');
-        }
-
-        // タブ切り替え
-        function switchTab(tab) {
-            currentTab = tab;
-            updateTabUI();
-            // タブを切り替えるタイミングでも忘却曲線のチェックを行う
-            checkEbbinghausEffect();
-            renderWords();
-        }
-
         function updateTabUI() {
             const tabLearning = document.getElementById('tabLearning');
             const tabMastered = document.getElementById('tabMastered');
-            if (currentTab === 'learning')
+            if (currentTab === 'learning') {
+                tabLearning.className = "w-1/2 py-3 text-sm font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm";
+                tabMastered.className = "w-1/2 py-3 text-sm font-bold rounded-lg transition-all text-slate-600";
+            } else {
+                tabLearning.className = "w-1/2 py-3 text-sm font-bold rounded-lg transition-all text-slate-600";
+                tabMastered.className = "w-1/2 py-3 text-sm font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm";
+            }
+        }
+
+        function saveAndRefresh() {
+            localStorage.setItem('myDualProWords', JSON.stringify(words
