@@ -9,9 +9,8 @@
     <style>
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
-            -webkit-tap-highlight-color: transparent; /* スマホでタップした時の青い影を消す */
+            -webkit-tap-highlight-color: transparent;
         }
-        /* ボタンを押しやすくするアクティブエフェクト */
         button:active {
             transform: scale(0.98);
             opacity: 0.9;
@@ -20,6 +19,7 @@
 </head>
 <body class="bg-slate-50 min-h-screen pb-12 select-none">
 
+    <!-- ヘッダー -->
     <header class="bg-indigo-600 text-white py-6 px-4 shadow-md mb-6">
         <div class="max-w-md mx-auto text-center">
             <h1 class="text-2xl font-bold tracking-tight">My Wordbook Dual 🚀</h1>
@@ -29,6 +29,7 @@
 
     <main class="max-w-md mx-auto px-4">
         
+        <!-- 単語帳モードの選択 -->
         <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mb-6">
             <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">単語帳モードを選択</label>
             <select id="modeSelect" onchange="changeMode()" class="w-full bg-slate-100 px-3 py-3 rounded-xl font-bold text-slate-700 border-none focus:ring-2 focus:ring-indigo-500 text-base">
@@ -38,6 +39,7 @@
             <p id="modeDesc" class="text-xs text-slate-400 mt-2">※通常モード中：覚えた単語は勝手に戻りません。</p>
         </div>
         
+        <!-- 単語登録フォーム -->
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-6">
             <div class="space-y-4">
                 <input type="text" id="wordInput" placeholder="英単語 (例: evaluate)" class="w-full px-4 py-3.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-lg">
@@ -48,6 +50,7 @@
             </div>
         </div>
 
+        <!-- 習熟度タブ切り替え -->
         <div class="bg-slate-200 p-1 rounded-xl flex mb-6">
             <button id="tabLearning" class="w-1/2 py-3 text-sm font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm">
                 未習得 (<span id="countLearning">0</span>)
@@ -57,8 +60,8 @@
             </button>
         </div>
 
-        <div id="wordList" class="space-y-3">
-            </div>
+        <!-- 単語一覧の表示エリア -->
+        <div id="wordList" class="space-y-3"></div>
 
     </main>
 
@@ -70,21 +73,24 @@
         // アプリ起動時に忘却曲線の判定を走らせる
         checkEbbinghausEffect();
 
-        // スマホのタップイベントを確実につなぐための補助関数
+        // スマホ・PC両対応のクリックイベント管理（二重発火防止版）
         function bindClick(elementId, callback) {
             const el = document.getElementById(elementId);
             if (!el) return;
-            // touchstartとclickの両方に対応し、二重起動を防ぐ
-            let moved = false;
-            el.addEventListener('touchmove', () => { moved = true; });
+            
+            let isFired = false;
+            
             el.addEventListener('touchend', (e) => {
-                if (!moved) {
-                    e.preventDefault();
-                    callback();
-                }
-                moved = false;
+                e.preventDefault();
+                isFired = true;
+                callback();
             });
+            
             el.addEventListener('click', (e) => {
+                if (isFired) {
+                    isFired = false;
+                    return;
+                }
                 callback();
             });
         }
@@ -145,7 +151,6 @@
                 `;
                 listElement.appendChild(card);
 
-                // 動的に作ったボタンとボカシエリアにタップイベントを設定
                 bindClick(buttonId, () => {
                     if (currentTab === 'learning') {
                         masterWord(originalIndex);
@@ -161,7 +166,6 @@
             });
         }
 
-        // 🧠 忘却曲線判定（3日後 = 72時間）
         function checkEbbinghausEffect() {
             if (currentMode !== 'ebbinghaus') return;
 
@@ -171,7 +175,7 @@
             words.forEach((word) => {
                 if (word.status === 'mastered' && word.masteredAt) {
                     const elapsed = now - word.masteredAt;
-                    const threeDaysMs = 72 * 60 * 60 * 1000; // 3日後（72時間）に修正
+                    const threeDaysMs = 72 * 60 * 60 * 1000;
                     
                     if (elapsed >= threeDaysMs) {
                         word.status = 'learning'; 
@@ -204,19 +208,24 @@
             const wordInput = document.getElementById('wordInput');
             const meaningInput = document.getElementById('meaningInput');
 
-            if (!wordInput.value.trim() || !meaningInput.value.trim()) {
-                alert('単語と意味の両方を入力してください！');
+            const wordValue = wordInput.value.trim();
+            const meaningValue = meaningInput.value.trim();
+
+            if (!wordValue || !meaningValue) {
+                alert('エラー：単語と意味の両方を入力してください！');
                 return;
             }
 
-            if (words.some(w => w.word === wordInput.value.trim())) {
-                alert('その単語は既に登録されています！');
+            // 重複チェック
+            const isDuplicate = words.some(w => w.word.toLowerCase() === wordValue.toLowerCase());
+            if (isDuplicate) {
+                alert(`エラー：「${wordValue}」は既に登録されています！`);
                 return;
             }
 
             words.unshift({
-                word: wordInput.value.trim(),
-                meaning: meaningInput.value.trim(),
+                word: wordValue,
+                meaning: meaningValue,
                 status: 'learning',
                 masteredAt: null
             });
@@ -254,4 +263,17 @@
         }
 
         function saveAndRefresh() {
-            localStorage.setItem('myDualProWords', JSON.stringify(words
+            localStorage.setItem('myDualProWords', JSON.stringify(words));
+            renderWords();
+        }
+
+        // イベント紐付け
+        bindClick('btnAddWord', addWord);
+        bindClick('tabLearning', () => { currentTab = 'learning'; updateTabUI(); checkEbbinghausEffect(); renderWords(); });
+        bindClick('tabMastered', () => { currentTab = 'mastered'; updateTabUI(); checkEbbinghausEffect(); renderWords(); });
+
+        // 初回起動表示
+        renderWords();
+    </script>
+</body>
+</html>
