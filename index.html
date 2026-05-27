@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Wordbook Dual Pro Ultra</title>
+    <title>Wordbook Dual Train Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -14,18 +14,34 @@
             -webkit-tap-highlight-color: rgba(0,0,0,0);
             line-height: 1.4;
         }
-        /* Safariのクリック遅延と誤認識を強制解除 */
         button, a, input, select, .tappable {
             touch-action: manipulation;
             cursor: pointer;
         }
-        /* ボタンを押した瞬間の視覚フィードバック（反応してるかすぐわかる） */
         button:active, .tappable:active {
             opacity: 0.6;
             transform: scale(0.97);
         }
         .blur-fix { filter: blur(8px); }
-        .no-blur { filter: blur(0px); }
+        
+        /* 辞書用のA-Zサイドバーを画面右端に固定するスタイル */
+        .index-sidebar {
+            position: fixed;
+            right: 2px;
+            top: 140px;
+            bottom: 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            width: 24px;
+            z-index: 150;
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(4px);
+            border-radius: 12px;
+            padding: 8px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen" style="padding-bottom: calc(100px + var(--sab));">
@@ -36,7 +52,10 @@
         </div>
     </header>
 
-    <main class="max-w-md mx-auto px-4 mt-4">
+    <main class="max-w-md mx-auto px-4 mt-4 relative">
+        
+        <div id="azSidebar" class="index-sidebar hidden">
+            </div>
         
         <div id="sectionWordbook">
             <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-100 mb-4">
@@ -63,19 +82,18 @@
                 <button id="tabLearning" onclick="switchTab('learning')" class="w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm">
                     未習得 (<span id="countLearning">0</span>)
                 </button>
-                <button id="tabMastered" onclick="switchTab('mastered')" class="w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-600">
+                <button id="tabMastered" onclick="switchTab('mastered')" class="w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-500 bg-transparent">
                     習得済み 🎉 (<span id="countMastered">0</span>)
                 </button>
             </div>
         </div>
 
-        <div id="sectionDictionary" class="hidden">
-            <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 text-xs mb-4 text-center font-medium">
-                📖 ABC順 辞書モード
+        <div id="sectionDictionary" class="hidden pr-6"> <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 text-xs mb-4 text-center font-medium">
+                📖 ABC順 辞書モード (右端の文字でジャンプ)
             </div>
         </div>
 
-        <div id="wordList" class="space-y-3"></div>
+        <div id="wordList" class="space-y-3 pb-12 pr-6"></div>
 
     </main>
 
@@ -93,8 +111,7 @@
     </nav>
 
     <script>
-        // 保存キーを更新してクリーンアップ
-        const STORAGE_KEY = 'myWordbookUltraV1';
+        const STORAGE_KEY = 'myWordbookTrainV1';
         let words = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
         let currentTab = 'learning';
         let mainMode = 'wordbook';
@@ -102,10 +119,41 @@
 
         function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(words)); }
 
+        // A-Zサイドバーの自動生成
+        function initSidebar() {
+            const sidebar = document.getElementById('azSidebar');
+            sidebar.innerHTML = '';
+            for (let i = 65; i <= 90; i++) {
+                const letter = String.fromCharCode(i);
+                const btn = document.createElement('button');
+                btn.className = "text-[9px] font-bold text-slate-400 hover:text-indigo-600 block w-full text-center py-0.5";
+                btn.innerText = letter;
+                btn.onclick = () => scrollToLetter(letter);
+                sidebar.appendChild(btn);
+            }
+        }
+
+        // 指定したアルファベットの場所へスクロール
+        function scrollToLetter(letter) {
+            const target = document.getElementById(`heading-${letter.toLowerCase()}`);
+            if (target) {
+                // ヘッダーに被らないように位置を調整してスクロール
+                const headerOffset = 70;
+                const elementPosition = target.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+                
+                window.scrollTo({
+                    top: offsetPosition,
+                    behavior: "smooth"
+                });
+            }
+        }
+
         function switchMainMode(mode) {
             mainMode = mode;
             document.getElementById('sectionWordbook').classList.toggle('hidden', mode !== 'wordbook');
             document.getElementById('sectionDictionary').classList.toggle('hidden', mode !== 'dictionary');
+            document.getElementById('azSidebar').classList.toggle('hidden', mode !== 'dictionary');
             
             document.getElementById('navWordbook').classList.toggle('text-indigo-600', mode === 'wordbook');
             document.getElementById('navWordbook').classList.toggle('text-slate-400', mode !== 'wordbook');
@@ -138,20 +186,38 @@
                 return;
             }
 
+            let lastLetter = "";
+
             displayWords.forEach((item) => {
                 const originalIndex = words.findIndex(w => w.word === item.word && w.meaning === item.meaning);
+                
+                // 【新機能】辞書モードの時、アルファベットの区切り見出し（A, B, C...）を入れる
+                if (mainMode === 'dictionary') {
+                    const firstLetter = item.word.charAt(0).toLowerCase();
+                    if (firstLetter !== lastLetter && /[a-z]/.test(firstLetter)) {
+                        lastLetter = firstLetter;
+                        const heading = document.createElement('div');
+                        heading.id = `heading-${firstLetter}`;
+                        heading.className = "text-xs font-bold text-indigo-600 pt-2 pb-1 border-b border-indigo-100 uppercase tracking-wider";
+                        heading.innerText = firstLetter;
+                        listElement.appendChild(heading);
+                    }
+                }
+
                 const card = document.createElement('div');
                 card.className = "bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex justify-between items-center active:bg-slate-50 tappable";
                 
+                // 右手親指用ボタン配置
                 let actionBtn = "";
                 if (mainMode === 'wordbook') {
                     actionBtn = item.status === 'learning' 
-                        ? `<button onclick="updateStatus(${originalIndex}, 'mastered')" class="bg-emerald-50 text-emerald-600 font-bold py-2.5 px-4 rounded-xl text-xs">覚えた</button>`
-                        : `<button onclick="updateStatus(${originalIndex}, 'learning')" class="bg-slate-100 text-slate-600 font-medium py-2 px-3 text-[10px] rounded-lg">戻す</button>`;
+                        ? `<button onclick="updateStatus(${originalIndex}, 'mastered')" class="bg-emerald-50 text-emerald-600 font-bold py-3 px-4 rounded-xl text-xs whitespace-nowrap min-w-[70px]">✓ 覚えた</button>`
+                        : `<button onclick="updateStatus(${originalIndex}, 'learning')" class="bg-slate-100 text-slate-600 font-medium py-2 px-3 text-[10px] rounded-lg whitespace-nowrap">戻す</button>`;
                 } else {
-                    actionBtn = `<span class="text-[9px] font-bold px-2 py-1 rounded ${item.status === 'learning' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}">${item.status === 'learning' ? '未習得' : '習得済'}</span>`;
+                    actionBtn = `<span class="text-[9px] font-bold px-2 py-1 rounded whitespace-nowrap ${item.status === 'learning' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}">${item.status === 'learning' ? '未習得' : '習得済'}</span>`;
                 }
 
+                // 💡 【左右を反転】左側に単語・意味のエリア、右側に「覚えた」ボタン
                 card.innerHTML = `
                     <div class="flex-1 pr-3" onclick="toggleBlur(${originalIndex})">
                         <div class="flex items-center gap-1">
@@ -164,7 +230,7 @@
                             <button onclick="event.stopPropagation(); deleteWord(${originalIndex})" class="text-[10px] text-red-300">🗑️ 削除</button>
                         </div>
                     </div>
-                    <div class="flex-shrink-0">${actionBtn}</div>
+                    <div class="flex-shrink-0 ml-auto pl-2">${actionBtn}</div>
                 `;
                 listElement.appendChild(card);
             });
@@ -187,7 +253,7 @@
 
         function toggleBlur(index) {
             const el = document.getElementById(`meaning-${index}`);
-            el.classList.toggle('blur-fix');
+            if(el) el.classList.toggle('blur-fix');
         }
 
         function deleteWord(index) {
@@ -200,7 +266,22 @@
             if (w && m) { words[index].word = w; words[index].meaning = m; save(); renderWords(); }
         }
 
-        function switchTab(tab) { currentTab = tab; renderWords(); }
+        // 🎨 タブ切り替え時の白光（ハイライト）処理
+        function switchTab(tab) { 
+            currentTab = tab; 
+            const tl = document.getElementById('tabLearning');
+            const tm = document.getElementById('tabMastered');
+            
+            if(tab === 'learning') {
+                tl.className = "w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm";
+                tm.className = "w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-500 bg-transparent";
+            } else {
+                tl.className = "w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-500 bg-transparent";
+                tm.className = "w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm";
+            }
+            renderWords(); 
+        }
+        
         function changeMode() { currentMode = document.getElementById('modeSelect').value; renderWords(); }
 
         function checkEbbinghausEffect() {
@@ -214,6 +295,8 @@
             if (changed) { save(); renderWords(); }
         }
 
+        // 初期化
+        initSidebar();
         setInterval(checkEbbinghausEffect, 60000);
         renderWords();
     </script>
