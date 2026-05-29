@@ -42,7 +42,6 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
         
-        /* 再生中のハイライト用アニメーション */
         .playing-highlight {
             border-color: #3b82f6 !important;
             background-color: #eff6ff !important;
@@ -158,7 +157,13 @@
     <script>
         const STORAGE_KEY = 'myWordbookTrainV1';
         
-        let words = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        let words = [];
+        try {
+            words = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        } catch(e) {
+            words = [];
+        }
+        
         let currentTab = 'learning';
         let mainMode = 'wordbook';
         let currentMode = 'normal';
@@ -167,15 +172,21 @@
         let isShuffleMode = false;
         let shuffledIndices = [];
 
-        // 🆕 連続再生用の管理変数
         let isAudioPlaying = false;
         let audioPlayIndex = 0;
         let audioTimeoutId = null;
-        let currentDisplayObjects = []; // 画面に表示されている要素の参照用
+        let currentDisplayObjects = [];
 
-        function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(words)); }
+        function save() { 
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(words)); 
+            } catch(e) {
+                console.error("Save error", e);
+            }
+        }
 
         function speakWord(englishText, japaneseText, callback) {
+            if (!window.speechSynthesis) return;
             window.speechSynthesis.cancel();
 
             const englishUtterance = new SpeechSynthesisUtterance(englishText);
@@ -187,22 +198,21 @@
             japaneseUtterance.rate = 1.0;
 
             englishUtterance.onend = () => {
-                if (!isAudioPlaying && !callback) return; // 単発再生の時は即終了
+                if (!isAudioPlaying && !callback) return;
                 
                 audioTimeoutId = setTimeout(() => {
                     japaneseUtterance.onend = () => {
-                        if (callback) callback(); // 連続再生用の次ステップへ
+                        if (callback) callback();
                     };
                     window.speechSynthesis.speak(japaneseUtterance);
-                }, 1000); // 英語と日本語の間の「間」
+                }, 1000);
             };
 
             window.speechSynthesis.speak(englishUtterance);
         }
 
-        // 🆕 連続自動再生スタート
         function startContinuousPlayback() {
-            const audioWords = words.filter(w => w.inAudioMode === true);
+            const audioWords = words.filter(w => w && w.inAudioMode === true);
             if (audioWords.length === 0) {
                 alert("読み上げモードに追加された単語がありません。単語カードの「読み上げ追加」ボタンを押して登録してください。");
                 return;
@@ -216,23 +226,18 @@
             playNextAudioItem();
         }
 
-        // 🆕 次の単語を再生するループ処理
         function playNextAudioItem() {
             if (!isAudioPlaying) return;
 
-            // 再生する対象（現在の表示リスト＝読み上げ登録された単語）
             if (audioPlayIndex >= currentDisplayObjects.length) {
-                // すべて読み終わったら終了
                 stopContinuousPlayback();
                 document.getElementById('audioStatusText').innerText = "🎉 すべての単語の読み上げが完了しました！";
                 return;
             }
 
-            // 全単語のハイライトをいったん消去
             const cards = document.querySelectorAll('.tappable');
             cards.forEach(c => c.classList.remove('playing-highlight'));
 
-            // 現在再生中のカードをハイライト
             const currentCard = document.getElementById(`card-${audioPlayIndex}`);
             if (currentCard) {
                 currentCard.classList.add('playing-highlight');
@@ -243,42 +248,40 @@
             document.getElementById('audioStatusText').innerText = `🎵 再生中 (${audioPlayIndex + 1}/${currentDisplayObjects.length}): ${obj.item.word}`;
 
             speakWord(obj.item.word, obj.item.meaning, () => {
-                // 日本語を話し終わった後の「間」をあけて次の単語へ
                 audioTimeoutId = setTimeout(() => {
                     audioPlayIndex++;
                     playNextAudioItem();
-                }, 1500); // 次の単語へ行くまでの秒数（1.5秒）
+                }, 1500);
             });
         }
 
-        // 🆕 連続自動再生ストップ
         function stopContinuousPlayback() {
             isAudioPlaying = false;
-            window.speechSynthesis.cancel();
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
             clearTimeout(audioTimeoutId);
             
-            document.getElementById('startAudioBtn').classList.remove('hidden');
-            document.getElementById('stopAudioBtn').classList.add('hidden');
-            document.getElementById('audioStatusText').innerText = "読み上げを停止しました。";
+            const startBtn = document.getElementById('startAudioBtn');
+            const stopBtn = document.getElementById('stopAudioBtn');
+            const statusTxt = document.getElementById('audioStatusText');
             
-            // ハイライトを消去
+            if (startBtn) startBtn.classList.remove('hidden');
+            if (stopBtn) stopBtn.classList.add('hidden');
+            if (statusTxt) statusTxt.innerText = "読み上げを停止しました。";
+            
             const cards = document.querySelectorAll('.tappable');
             cards.forEach(c => c.classList.remove('playing-highlight'));
         }
 
-        // 🆕 読み上げモードへの登録・解除の切り替え
         function toggleAudioMode(originalIndex) {
-            if (words[originalIndex].inAudioMode) {
-                words[originalIndex].inAudioMode = false;
-            } else {
-                words[originalIndex].inAudioMode = true;
-            }
+            if (!words[originalIndex]) return;
+            words[originalIndex].inAudioMode = !words[originalIndex].inAudioMode;
             save();
             renderWords();
         }
 
         function initSidebar() {
             const sidebar = document.getElementById('azSidebar');
+            if (!sidebar) return;
             sidebar.innerHTML = '';
             for (let i = 65; i <= 90; i++) {
                 const letter = String.fromCharCode(i);
@@ -301,7 +304,6 @@
         }
 
         function switchMainMode(mode) {
-            // モード切り替え時は自動読み上げを安全に止める
             if (isAudioPlaying && mode !== 'audio') {
                 stopContinuousPlayback();
             }
@@ -314,7 +316,7 @@
             
             let themeColor = 'text-indigo-600';
             if (currentMode === 'ebbinghaus') themeColor = 'text-emerald-600';
-            if (mode === 'audio') themeColor = 'text-blue-600'; // 読み上げモードの時は青テーマ
+            if (mode === 'audio') themeColor = 'text-blue-600';
             
             document.getElementById('navWordbook').className = `flex flex-col items-center gap-1 w-1/3 py-1 ${mode === 'wordbook' ? themeColor : 'text-slate-400'}`;
             document.getElementById('navAudio').className = `flex flex-col items-center gap-1 w-1/3 py-1 ${mode === 'audio' ? themeColor : 'text-slate-400'}`;
@@ -338,16 +340,16 @@
             const themeBg = currentMode === 'ebbinghaus' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100';
 
             if (isShuffleMode) {
-                normBtn.className = "px-3 py-1.5 rounded-lg bg-slate-200 text-slate-600";
-                shufBtn.className = `px-3 py-1.5 rounded-lg ${themeBg} border shadow-sm`;
+                if(normBtn) normBtn.className = "px-3 py-1.5 rounded-lg bg-slate-200 text-slate-600";
+                if(shufBtn) shufBtn.className = `px-3 py-1.5 rounded-lg ${themeBg} border shadow-sm`;
                 shuffledIndices = words.map((_, i) => i);
                 for (let i = shuffledIndices.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
                     [shuffledIndices[i], shuffledIndices[j]] = [shuffledIndices[j], shuffledIndices[i]];
                 }
             } else {
-                normBtn.className = `px-3 py-1.5 rounded-lg ${themeBg} border shadow-sm`;
-                shufBtn.className = "px-3 py-1.5 rounded-lg bg-slate-200 text-slate-600";
+                if(normBtn) normBtn.className = `px-3 py-1.5 rounded-lg ${themeBg} border shadow-sm`;
+                if(shufBtn) shufBtn.className = "px-3 py-1.5 rounded-lg bg-slate-200 text-slate-600";
             }
             renderWords();
         }
@@ -382,18 +384,21 @@
             const btn2 = document.getElementById('filterDay2');
             const btn3 = document.getElementById('filterDay3');
 
-            [btnAll, btn1, btn2, btn3].forEach(b => b.className = "px-2 py-1 rounded text-slate-600");
+            [btnAll, btn1, btn2, btn3].forEach(b => {
+                if(b) b.className = "px-2 py-1 rounded text-slate-600";
+            });
 
-            if (day === 'all') btnAll.className = "px-2 py-1 rounded bg-white text-emerald-600 shadow-sm";
-            if (day === 1) btn1.className = "px-2 py-1 rounded bg-white text-emerald-600 shadow-sm";
-            if (day === 2) btn2.className = "px-2 py-1 rounded bg-white text-emerald-600 shadow-sm";
-            if (day === 3) btn3.className = "px-2 py-1 rounded bg-white text-emerald-600 shadow-sm";
+            if (day === 'all' && btnAll) btnAll.className = "px-2 py-1 rounded bg-white text-emerald-600 shadow-sm";
+            if (day === 1 && btn1) btn1.className = "px-2 py-1 rounded bg-white text-emerald-600 shadow-sm";
+            if (day === 2 && btn2) btn2.className = "px-2 py-1 rounded bg-white text-emerald-600 shadow-sm";
+            if (day === 3 && btn3) btn3.className = "px-2 py-1 rounded bg-white text-emerald-600 shadow-sm";
 
             renderWords();
         }
 
         function updateFilterBarVisibility() {
             const filterBar = document.getElementById('dayFilterGroup');
+            if(!filterBar) return;
             if (mainMode === 'wordbook' && currentMode === 'ebbinghaus' && currentTab === 'mastered') {
                 filterBar.classList.remove('hidden');
             } else {
@@ -403,24 +408,29 @@
 
         function renderWords() {
             const listElement = document.getElementById('wordList');
-            const learningWords = words.filter(w => w.status === 'learning');
-            const masteredWords = words.filter(w => w.status === 'mastered');
-            const audioWords = words.filter(w => w.inAudioMode === true);
+            if(!listElement) return;
+
+            const learningWords = words.filter(w => w && w.status === 'learning');
+            const masteredWords = words.filter(w => w && w.status === 'mastered');
+            const audioWords = words.filter(w => w && w.inAudioMode === true);
             
-            document.getElementById('countLearning').innerText = learningWords.length;
-            document.getElementById('countMastered').innerText = masteredWords.length;
-            document.getElementById('countAudioList').innerText = audioWords.length;
+            const cLearn = document.getElementById('countLearning');
+            const cMaster = document.getElementById('countMastered');
+            const cAudio = document.getElementById('countAudioList');
+            
+            if(cLearn) cLearn.innerText = learningWords.length;
+            if(cMaster) cMaster.innerText = masteredWords.length;
+            if(cAudio) cAudio.innerText = audioWords.length;
 
             listElement.innerHTML = '';
             let baseWords = [];
 
             if (mainMode === 'wordbook' && isShuffleMode) {
-                baseWords = shuffledIndices.map(idx => ({ item: words[idx], originalIndex: idx }));
+                baseWords = shuffledIndices.map(idx => (words[idx] ? { item: words[idx], originalIndex: idx } : null)).filter(Boolean);
             } else {
-                baseWords = words.map((w, idx) => ({ item: w, originalIndex: idx }));
+                baseWords = words.map((w, idx) => (w ? { item: w, originalIndex: idx } : null)).filter(Boolean);
             }
 
-            // 画面のモードによってリストの出し分け
             if (mainMode === 'wordbook') {
                 currentDisplayObjects = baseWords.filter(obj => obj.item.status === currentTab);
                 if (currentMode === 'ebbinghaus' && currentTab === 'mastered' && currentDayFilter !== 'all') {
@@ -431,7 +441,6 @@
                     });
                 }
             } else if (mainMode === 'audio') {
-                // 🆕 読み上げモード画面の時は、登録された単語だけを出す
                 currentDisplayObjects = baseWords.filter(obj => obj.item.inAudioMode === true);
             } else {
                 currentDisplayObjects = [...baseWords].sort((a, b) => a.item.word.toLowerCase().localeCompare(b.item.word.toLowerCase()));
@@ -470,7 +479,7 @@
                 }
 
                 const card = document.createElement('div');
-                card.id = `card-${localIndex}`; // 連続再生中のハイライト制御用にIDを付与
+                card.id = `card-${localIndex}`;
                 card.className = "bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex justify-between items-center active:bg-slate-50 tappable";
                 
                 let actionBtn = "";
@@ -478,9 +487,6 @@
                     actionBtn = item.status === 'learning' 
                         ? `<button onclick="updateStatus(${originalIndex}, 'mastered')" class="bg-emerald-50 text-emerald-600 border border-emerald-100/50 font-bold py-3 px-4 rounded-xl text-xs whitespace-nowrap min-w-[70px]">✓ 覚えた</button>`
                         : `<button onclick="updateStatus(${originalIndex}, 'learning')" class="bg-slate-100 text-slate-600 font-medium py-2 px-3 text-[10px] rounded-lg whitespace-nowrap">戻す</button>`;
-                } else if (mainMode === 'audio') {
-                    // 読み上げ画面での右側ボタン
-                    actionBtn = `<span class="text-[9px] font-bold px-2 py-1 rounded whitespace-nowrap ${item.status === 'learning' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}">${item.status === 'learning' ? '未習得' : '習得済'}</span>`;
                 } else {
                     actionBtn = `<span class="text-[9px] font-bold px-2 py-1 rounded whitespace-nowrap ${item.status === 'learning' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}">${item.status === 'learning' ? '未習得' : '習得済'}</span>`;
                 }
@@ -490,26 +496,23 @@
                     timeBadge = getCountdownBadge(item.masteredAt);
                 }
 
-                const safeWord = item.word.replace(/'/g, "\\'");
-                const safeMeaning = item.meaning.replace(/'/g, "\\'");
+                const safeWord = (item.word || '').replace(/'/g, "\\'");
+                const safeMeaning = (item.meaning || '').replace(/'/g, "\\'");
 
-                // 🆕 読み上げモードに登録されているかでボタンのデザインを変える
                 const audioBtnText = item.inAudioMode ? "➖ 読み上げ解除" : "➕ 読み上げ追加";
                 const audioBtnClass = item.inAudioMode ? "text-blue-500 font-semibold" : "text-slate-400";
-
-                // 読み上げモード画面の時は、モザイク（ぼかし）を自動解除して見やすくする
                 const blurClass = mainMode === 'audio' ? '' : 'blur-fix';
 
                 card.innerHTML = `
                     <div class="flex-1 pr-3" onclick="toggleBlur(${originalIndex})">
                         <div class="flex items-center gap-2">
-                            <p class="text-base font-bold text-slate-900">${item.word}</p>
+                            <p class="text-base font-bold text-slate-900">${item.word || ''}</p>
                             <button onclick="event.stopPropagation(); speakWord('${safeWord}', '${safeMeaning}')" class="${speakerBgColor} p-1.5 rounded-lg text-xs font-bold flex items-center justify-center shadow-sm active:scale-90 transition-transform" title="音声を再生">
                                 📢
                             </button>
                             ${timeBadge}
                         </div>
-                        <p id="meaning-${originalIndex}" class="${textThemeColor} text-sm font-medium mt-1 ${blurClass} transition-all pointer-events-none">${item.meaning}</p>
+                        <p id="meaning-${originalIndex}" class="${textThemeColor} text-sm font-medium mt-1 ${blurClass} transition-all pointer-events-none">${item.meaning || ''}</p>
                         <div class="flex gap-4 mt-2">
                             <button onclick="event.stopPropagation(); editWord(${originalIndex})" class="text-[10px] text-slate-400">✏️ 編集</button>
                             <button onclick="event.stopPropagation(); deleteWord(${originalIndex})" class="text-[10px] text-red-300">🗑️ 削除</button>
@@ -525,28 +528,36 @@
         function addWord() {
             const w = document.getElementById('wordInput');
             const m = document.getElementById('meaningInput');
+            if (!w || !m) return;
             if (!w.value.trim() || !m.value.trim()) return alert("入力してください");
-            // 新規追加時、inAudioModeフラグもデフォルトfalseで追加
-            words.unshift({ word: w.value.trim(), meaning: m.value.trim(), status: 'learning', masteredAt: null, inAudioMode: false });
+            
+            words.unshift({ 
+                word: w.value.trim(), 
+                meaning: m.value.trim(), 
+                status: 'learning', 
+                masteredAt: null, 
+                inAudioMode: false 
+            });
             w.value = ''; m.value = '';
             save(); 
             if (isShuffleMode) toggleShuffle(true); else renderWords();
         }
 
         function updateStatus(index, status) {
+            if(!words[index]) return;
             words[index].status = status;
             words[index].masteredAt = (status === 'mastered') ? Date.now() : null;
             save(); renderWords();
         }
 
         function toggleBlur(index) {
-            // 読み上げモード画面の時はモザイク解除不要
             if (mainMode === 'audio') return;
             const el = document.getElementById(`meaning-${index}`);
             if(el) el.classList.toggle('blur-fix');
         }
 
         function deleteWord(index) {
+            if(!words[index]) return;
             if(confirm("削除しますか？")) { 
                 words.splice(index, 1); 
                 save(); 
@@ -554,4 +565,69 @@
             }
         }
 
-        function
+        function editWord(index) {
+            if(!words[index]) return;
+            const w = prompt("英単語", words[index].word);
+            const m = prompt("意味", words[index].meaning);
+            if (w && m) { words[index].word = w; words[index].meaning = m; save(); renderWords(); }
+        }
+
+        function switchTab(tab) { 
+            currentTab = tab; 
+            const tl = document.getElementById('tabLearning');
+            const tm = document.getElementById('tabMastered');
+            if(!tl || !tm) return;
+            
+            const activeTextColor = currentMode === 'ebbinghaus' ? 'text-emerald-600' : 'text-indigo-600';
+
+            if(tab === 'learning') {
+                tl.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white ${activeTextColor} shadow-sm`;
+                tm.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-500 bg-transparent`;
+            } else {
+                tl.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-500 bg-transparent`;
+                tm.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white ${activeTextColor} shadow-sm`;
+            }
+            updateFilterBarVisibility();
+            renderWords(); 
+        }
+        
+        function changeMode() { 
+            const selectEl = document.getElementById('modeSelect');
+            if(!selectEl) return;
+            currentMode = selectEl.value; 
+            
+            const header = document.getElementById('appHeader');
+            const addBtn = document.getElementById('addWordBtn');
+            
+            if (currentMode === 'ebbinghaus') {
+                if(header) header.className = "bg-emerald-600 text-white shadow-md sticky top-0 z-[100] transition-colors duration-300";
+                if(addBtn) addBtn.className = "w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl shadow-sm active:opacity-80 transition-colors duration-300";
+            } else {
+                if(header) header.className = "bg-indigo-600 text-white shadow-md sticky top-0 z-[100] transition-colors duration-300";
+                if(addBtn) addBtn.className = "w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-sm active:opacity-80 transition-colors duration-300";
+            }
+            
+            changeDayFilter('all');
+            switchTab(currentTab);
+            switchMainMode(mainMode);
+            toggleShuffle(isShuffleMode);
+        }
+
+        function checkEbbinghausEffect() {
+            const now = Date.now();
+            let changed = false;
+            words.forEach(w => {
+                if (w && currentMode === 'ebbinghaus' && w.status === 'mastered' && w.masteredAt && (now - w.masteredAt > 72*3600000)) {
+                    w.status = 'learning'; w.masteredAt = null; changed = true;
+                }
+            });
+            if (changed) { save(); renderWords(); }
+        }
+
+        // 初期起動処理
+        initSidebar();
+        renderWords();
+        setInterval(() => { checkEbbinghausEffect(); renderWords(); }, 60000);
+    </script>
+</body>
+</html>
