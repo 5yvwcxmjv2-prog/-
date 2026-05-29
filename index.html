@@ -91,16 +91,14 @@
                 </button>
             </div>
 
-            <!-- シャッフル・並び替えコントローラー（左側に日数フィルターボタンを統合） -->
+            <!-- シャッフル・並び替えコントローラー -->
             <div class="flex justify-between items-center mb-4 text-[11px] font-bold">
-                <!-- 🆕 忘却曲線・習得済みタブの時だけ動的に出現する日数フィルター -->
                 <div id="dayFilterGroup" class="flex gap-0.5 bg-slate-200 p-0.5 rounded-lg hidden">
                     <button id="filterDayAll" onclick="changeDayFilter('all')" class="px-2 py-1 rounded bg-white text-emerald-600 shadow-sm">すべて</button>
                     <button id="filterDay1" onclick="changeDayFilter(1)" class="px-2 py-1 rounded text-slate-600">1日後</button>
                     <button id="filterDay2" onclick="changeDayFilter(2)" class="px-2 py-1 rounded text-slate-600">2日後</button>
                     <button id="filterDay3" onclick="changeDayFilter(3)" class="px-2 py-1 rounded text-slate-600">3日後</button>
                 </div>
-                <!-- 右側の並び替えボタン（左側に要素がないときは自動で右寄せになります） -->
                 <div class="flex gap-1 ml-auto">
                     <button id="sortNormalBtn" onclick="toggleShuffle(false)" class="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-sm">
                         ⏱️ 新しい順
@@ -145,12 +143,38 @@
         let currentTab = 'learning';
         let mainMode = 'wordbook';
         let currentMode = 'normal';
-        let currentDayFilter = 'all'; // 'all', 1, 2, 3
+        let currentDayFilter = 'all';
         
         let isShuffleMode = false;
         let shuffledIndices = [];
 
         function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(words)); }
+
+        // 🆕 音声読み上げ関数（英語を読んだあと、1秒あけて日本語を喋る）
+        function speakWord(englishText, japaneseText) {
+            // すべての再生中音声をいったんストップ
+            window.speechSynthesis.cancel();
+
+            // 1. 英語の発音設定
+            const englishUtterance = new SpeechSynthesisUtterance(englishText);
+            englishUtterance.lang = 'en-US'; // アメリカ英語
+            englishUtterance.rate = 0.9;     // 聞き取りやすいようほんの少しだけゆっくり
+
+            // 2. 日本語の意味設定
+            const japaneseUtterance = new SpeechSynthesisUtterance(japaneseText);
+            japaneseUtterance.lang = 'ja-JP'; // 日本語
+            japaneseUtterance.rate = 1.0;
+
+            // 英語の読み上げが終わったら、1秒待ってから日本語を再生する
+            englishUtterance.onend = () => {
+                setTimeout(() => {
+                    window.speechSynthesis.speak(japaneseUtterance);
+                }, 1000); // 1000ミリ秒 = 1秒
+            };
+
+            // 再生開始
+            window.speechSynthesis.speak(englishUtterance);
+        }
 
         function initSidebar() {
             const sidebar = document.getElementById('azSidebar');
@@ -216,7 +240,6 @@
             renderWords();
         }
 
-        // 🆕 残り日数を数値で計算する共通関数
         function getRemainingDays(masteredAt) {
             if (!masteredAt) return 0;
             const now = Date.now();
@@ -240,7 +263,6 @@
             }
         }
 
-        // 🆕 日数フィルターボタンが押された時の処理
         function changeDayFilter(day) {
             currentDayFilter = day;
             const btnAll = document.getElementById('filterDayAll');
@@ -258,7 +280,6 @@
             renderWords();
         }
 
-        // 🆕 フィルターバーを表示するか隠すかを判定する関数
         function updateFilterBarVisibility() {
             const filterBar = document.getElementById('dayFilterGroup');
             if (mainMode === 'wordbook' && currentMode === 'ebbinghaus' && currentTab === 'mastered') {
@@ -289,12 +310,11 @@
             if (mainMode === 'wordbook') {
                 displayObjects = baseWords.filter(obj => obj.item.status === currentTab);
                 
-                // 🆕 忘却曲線かつ習得済みタブの時だけ、日数でさらに絞り込む
                 if (currentMode === 'ebbinghaus' && currentTab === 'mastered' && currentDayFilter !== 'all') {
                     displayObjects = displayObjects.filter(obj => {
                         const rem = getRemainingDays(obj.item.masteredAt);
                         if (currentDayFilter === 1) {
-                            return rem <= 1; // 1日後、または今日復習のものを表示
+                            return rem <= 1;
                         }
                         return rem === currentDayFilter;
                     });
@@ -311,6 +331,8 @@
             let lastLetter = "";
             const textThemeColor = currentMode === 'ebbinghaus' ? 'text-emerald-600' : 'text-indigo-600';
             const borderThemeColor = currentMode === 'ebbinghaus' ? 'border-emerald-100' : 'border-indigo-100';
+            // スピーカーボタンの背景色
+            const speakerBgColor = currentMode === 'ebbinghaus' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600';
 
             displayObjects.forEach((obj) => {
                 const item = obj.item;
@@ -345,10 +367,18 @@
                     timeBadge = getCountdownBadge(item.masteredAt);
                 }
 
+                // 安全に文字を渡すためのエスケープ処理
+                const safeWord = item.word.replace(/'/g, "\\'");
+                const safeMeaning = item.meaning.replace(/'/g, "\\'");
+
                 card.innerHTML = `
                     <div class="flex-1 pr-3" onclick="toggleBlur(${originalIndex})">
-                        <div class="flex items-center gap-1">
+                        <div class="flex items-center gap-2">
                             <p class="text-base font-bold text-slate-900">${item.word}</p>
+                            <!-- 🆕 音声読み上げボタンを追加 -->
+                            <button onclick="event.stopPropagation(); speakWord('${safeWord}', '${safeMeaning}')" class="${speakerBgColor} p-1.5 rounded-lg text-xs font-bold flex items-center justify-center shadow-sm active:scale-90 transition-transform" title="音声を再生">
+                                📢
+                            </button>
                             ${timeBadge}
                         </div>
                         <p id="meaning-${originalIndex}" class="${textThemeColor} text-sm font-medium mt-1 blur-fix transition-all pointer-events-none">${item.meaning}</p>
@@ -429,7 +459,6 @@
                 addBtn.className = "w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-sm active:opacity-80 transition-colors duration-300";
             }
             
-            // モードが変わったらフィルターをリセット
             changeDayFilter('all');
             switchTab(currentTab);
             switchMainMode(mainMode);
