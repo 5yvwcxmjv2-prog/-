@@ -45,7 +45,7 @@
 </head>
 <body id="appBody" class="bg-slate-50 min-h-screen" style="padding-bottom: calc(100px + var(--sab));">
 
-    <!-- ヘッダー（色の変化のために id="appHeader" を追加） -->
+    <!-- ヘッダー -->
     <header id="appHeader" class="bg-indigo-600 text-white shadow-md sticky top-0 z-[100] transition-colors duration-300" style="padding-top: var(--sat); padding-bottom: 12px;">
         <div class="max-w-md mx-auto text-center pt-4">
             <h1 id="headerTitle" class="text-lg font-bold">マイ単語帳 🚀</h1>
@@ -75,7 +75,6 @@
                         <input type="text" id="wordInput" placeholder="英単語" class="w-1/2 px-3 py-3 text-base rounded-lg border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 appearance-none">
                         <input type="text" id="meaningInput" placeholder="意味" class="w-1/2 px-3 py-3 text-base rounded-lg border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 appearance-none">
                     </div>
-                    <!-- 追加ボタン（色の変化のために id="addWordBtn" を追加） -->
                     <button id="addWordBtn" onclick="addWord()" class="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-sm active:opacity-80 transition-colors duration-300">
                         単語帳に追加する
                     </button>
@@ -92,14 +91,24 @@
                 </button>
             </div>
 
-            <!-- シャッフル・並び替えコントローラー -->
-            <div class="flex justify-end gap-1 mb-4 text-[11px] font-bold">
-                <button id="sortNormalBtn" onclick="toggleShuffle(false)" class="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-sm">
-                    ⏱️ 新しい順
-                </button>
-                <button id="sortShuffleBtn" onclick="toggleShuffle(true)" class="px-3 py-1.5 rounded-lg bg-slate-200 text-slate-600">
-                    🎲 シャッフル
-                </button>
+            <!-- シャッフル・並び替えコントローラー（左側に日数フィルターボタンを統合） -->
+            <div class="flex justify-between items-center mb-4 text-[11px] font-bold">
+                <!-- 🆕 忘却曲線・習得済みタブの時だけ動的に出現する日数フィルター -->
+                <div id="dayFilterGroup" class="flex gap-0.5 bg-slate-200 p-0.5 rounded-lg hidden">
+                    <button id="filterDayAll" onclick="changeDayFilter('all')" class="px-2 py-1 rounded bg-white text-emerald-600 shadow-sm">すべて</button>
+                    <button id="filterDay1" onclick="changeDayFilter(1)" class="px-2 py-1 rounded text-slate-600">1日後</button>
+                    <button id="filterDay2" onclick="changeDayFilter(2)" class="px-2 py-1 rounded text-slate-600">2日後</button>
+                    <button id="filterDay3" onclick="changeDayFilter(3)" class="px-2 py-1 rounded text-slate-600">3日後</button>
+                </div>
+                <!-- 右側の並び替えボタン（左側に要素がないときは自動で右寄せになります） -->
+                <div class="flex gap-1 ml-auto">
+                    <button id="sortNormalBtn" onclick="toggleShuffle(false)" class="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-sm">
+                        ⏱️ 新しい順
+                    </button>
+                    <button id="sortShuffleBtn" onclick="toggleShuffle(true)" class="px-3 py-1.5 rounded-lg bg-slate-200 text-slate-600">
+                        🎲 シャッフル
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -136,6 +145,7 @@
         let currentTab = 'learning';
         let mainMode = 'wordbook';
         let currentMode = 'normal';
+        let currentDayFilter = 'all'; // 'all', 1, 2, 3
         
         let isShuffleMode = false;
         let shuffledIndices = [];
@@ -181,6 +191,7 @@
             } else {
                 document.getElementById('headerTitle').innerText = currentMode === 'ebbinghaus' ? "ABC順 辞書モード 🧠" : "ABC順 辞書モード 📖";
             }
+            updateFilterBarVisibility();
             renderWords();
         }
 
@@ -205,13 +216,18 @@
             renderWords();
         }
 
-        function getCountdownBadge(masteredAt) {
-            if (!masteredAt) return '';
+        // 🆕 残り日数を数値で計算する共通関数
+        function getRemainingDays(masteredAt) {
+            if (!masteredAt) return 0;
             const now = Date.now();
             const elapsedMs = now - masteredAt;
             const threeDaysMs = 72 * 60 * 60 * 1000;
             const remainingMs = threeDaysMs - elapsedMs;
-            const remainingDays = Math.ceil(remainingMs / (24 * 60 * 60 * 1000));
+            return Math.ceil(remainingMs / (24 * 60 * 60 * 1000));
+        }
+
+        function getCountdownBadge(masteredAt) {
+            const remainingDays = getRemainingDays(masteredAt);
 
             if (remainingDays >= 3) {
                 return `<span class="text-[9px] bg-emerald-50 text-emerald-600 border border-emerald-200 px-1.5 py-0.5 rounded ml-1.5 font-bold">3日後復習</span>`;
@@ -221,6 +237,34 @@
                 return `<span class="text-[9px] bg-red-50 text-red-500 border border-red-200 px-1.5 py-0.5 rounded ml-1.5 font-bold">1日後復習</span>`;
             } else {
                 return `<span class="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded ml-1.5 font-bold animate-pulse">今日復習！</span>`;
+            }
+        }
+
+        // 🆕 日数フィルターボタンが押された時の処理
+        function changeDayFilter(day) {
+            currentDayFilter = day;
+            const btnAll = document.getElementById('filterDayAll');
+            const btn1 = document.getElementById('filterDay1');
+            const btn2 = document.getElementById('filterDay2');
+            const btn3 = document.getElementById('filterDay3');
+
+            [btnAll, btn1, btn2, btn3].forEach(b => b.className = "px-2 py-1 rounded text-slate-600");
+
+            if (day === 'all') btnAll.className = "px-2 py-1 rounded bg-white text-emerald-600 shadow-sm";
+            if (day === 1) btn1.className = "px-2 py-1 rounded bg-white text-emerald-600 shadow-sm";
+            if (day === 2) btn2.className = "px-2 py-1 rounded bg-white text-emerald-600 shadow-sm";
+            if (day === 3) btn3.className = "px-2 py-1 rounded bg-white text-emerald-600 shadow-sm";
+
+            renderWords();
+        }
+
+        // 🆕 フィルターバーを表示するか隠すかを判定する関数
+        function updateFilterBarVisibility() {
+            const filterBar = document.getElementById('dayFilterGroup');
+            if (mainMode === 'wordbook' && currentMode === 'ebbinghaus' && currentTab === 'mastered') {
+                filterBar.classList.remove('hidden');
+            } else {
+                filterBar.classList.add('hidden');
             }
         }
 
@@ -244,6 +288,17 @@
             let displayObjects = [];
             if (mainMode === 'wordbook') {
                 displayObjects = baseWords.filter(obj => obj.item.status === currentTab);
+                
+                // 🆕 忘却曲線かつ習得済みタブの時だけ、日数でさらに絞り込む
+                if (currentMode === 'ebbinghaus' && currentTab === 'mastered' && currentDayFilter !== 'all') {
+                    displayObjects = displayObjects.filter(obj => {
+                        const rem = getRemainingDays(obj.item.masteredAt);
+                        if (currentDayFilter === 1) {
+                            return rem <= 1; // 1日後、または今日復習のものを表示
+                        }
+                        return rem === currentDayFilter;
+                    });
+                }
             } else {
                 displayObjects = [...baseWords].sort((a, b) => a.item.word.toLowerCase().localeCompare(b.item.word.toLowerCase()));
             }
@@ -356,10 +411,10 @@
                 tl.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-500 bg-transparent`;
                 tm.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white ${activeTextColor} shadow-sm`;
             }
+            updateFilterBarVisibility();
             renderWords(); 
         }
         
-        // 🆕 モード変更時にテーマカラー（紫 ⇄ 緑）を動的に切り替える仕組み
         function changeMode() { 
             currentMode = document.getElementById('modeSelect').value; 
             
@@ -367,16 +422,15 @@
             const addBtn = document.getElementById('addWordBtn');
             
             if (currentMode === 'ebbinghaus') {
-                // 🧠 忘却曲線モードの時はエメラルドグリーンにする
                 header.className = "bg-emerald-600 text-white shadow-md sticky top-0 z-[100] transition-colors duration-300";
                 addBtn.className = "w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl shadow-sm active:opacity-80 transition-colors duration-300";
             } else {
-                // 🔒 通常モードの時は元のインディゴ（紫）に戻す
                 header.className = "bg-indigo-600 text-white shadow-md sticky top-0 z-[100] transition-colors duration-300";
                 addBtn.className = "w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-sm active:opacity-80 transition-colors duration-300";
             }
             
-            // タブやナビゲーション、並び替えボタンなどの色もまとめて更新
+            // モードが変わったらフィルターをリセット
+            changeDayFilter('all');
             switchTab(currentTab);
             switchMainMode(mainMode);
             toggleShuffle(isShuffleMode);
