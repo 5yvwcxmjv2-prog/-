@@ -41,14 +41,11 @@
             padding: 8px 0;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
-        .dark .index-sidebar {
-            background: rgba(30,41,59,0.8);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        }
     </style>
 </head>
-<body id="appBody" class="bg-slate-50 min-h-screen transition-colors duration-200" style="padding-bottom: calc(100px + var(--sab));">
+<body id="appBody" class="bg-slate-50 min-h-screen" style="padding-bottom: calc(100px + var(--sab));">
 
+    <!-- ヘッダー -->
     <header class="bg-indigo-600 text-white shadow-md sticky top-0 z-[100]" style="padding-top: var(--sat); padding-bottom: 12px;">
         <div class="max-w-md mx-auto text-center pt-4">
             <h1 id="headerTitle" class="text-lg font-bold">マイ単語帳 🚀</h1>
@@ -57,27 +54,26 @@
 
     <main class="max-w-md mx-auto px-4 mt-4 relative">
         
+        <!-- 辞書モードの時だけ右端に出る A-Z サイドバー -->
         <div id="azSidebar" class="index-sidebar hidden"></div>
         
+        <!-- 単語帳セクション -->
         <div id="sectionWordbook">
-            <div class="flex gap-2 items-end mb-4">
-                <div class="flex-1 bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-100 dark:border-slate-700/50 transition-colors">
-                    <label class="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1">システムモード</label>
-                    <select id="modeSelect" onchange="changeMode()" class="w-full bg-slate-100 dark:bg-slate-700 px-2.5 py-2 rounded-lg font-bold text-slate-700 dark:text-slate-200 border-none text-sm focus:ring-2 focus:ring-indigo-500">
+            <div class="mb-4">
+                <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-100">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">システムモード</label>
+                    <select id="modeSelect" onchange="changeMode()" class="w-full bg-slate-100 px-2.5 py-2 rounded-lg font-bold text-slate-700 border-none text-sm focus:ring-2 focus:ring-indigo-500">
                         <option value="normal">🔒 通常モード</option>
                         <option value="ebbinghaus">🧠 忘却曲線(3日後)</option>
                     </select>
                 </div>
-                <button onclick="toggleDarkMode()" id="darkModeBtn" class="h-12 px-3 flex items-center justify-center text-[11px] font-bold bg-slate-200 text-slate-700 border border-slate-300 rounded-xl shadow-sm active:scale-95 transition-all flex-shrink-0">
-                    ダーク
-                </button>
             </div>
             
-            <div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-700/50 mb-4 transition-colors">
+            <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 mb-4">
                 <div class="flex flex-col gap-3">
                     <div class="flex gap-2">
-                        <input type="text" id="wordInput" placeholder="英単語" class="w-1/2 px-3 py-3 text-base rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 appearance-none">
-                        <input type="text" id="meaningInput" placeholder="意味" class="w-1/2 px-3 py-3 text-base rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 appearance-none">
+                        <input type="text" id="wordInput" placeholder="英単語" class="w-1/2 px-3 py-3 text-base rounded-lg border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 appearance-none">
+                        <input type="text" id="meaningInput" placeholder="意味" class="w-1/2 px-3 py-3 text-base rounded-lg border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 appearance-none">
                     </div>
                     <button onclick="addWord()" class="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-sm active:bg-indigo-700">
                         単語帳に追加する
@@ -85,42 +81,47 @@
                 </div>
             </div>
 
-            <div class="bg-slate-200 dark:bg-slate-700 p-1 rounded-xl flex mb-3 transition-colors">
-                <button id="tabLearning" onclick="switchTab('learning')" class="w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white text-slate-800 dark:bg-slate-800 dark:text-white shadow-sm">
+            <!-- タブ -->
+            <div class="bg-slate-200 p-1 rounded-xl flex mb-3">
+                <button id="tabLearning" onclick="switchTab('learning')" class="w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm">
                     未習得 (<span id="countLearning">0</span>)
                 </button>
-                <button id="tabMastered" onclick="switchTab('mastered')" class="w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 bg-transparent">
+                <button id="tabMastered" onclick="switchTab('mastered')" class="w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-500 bg-transparent">
                     習得済み 🎉 (<span id="countMastered">0</span>)
                 </button>
             </div>
 
+            <!-- シャッフル・並び替えコントローラー -->
             <div class="flex justify-end gap-1 mb-4 text-[11px] font-bold">
-                <button id="sortNormalBtn" onclick="toggleShuffle(false)" class="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50 shadow-sm">
+                <button id="sortNormalBtn" onclick="toggleShuffle(false)" class="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-sm">
                     ⏱️ 新しい順
                 </button>
-                <button id="sortShuffleBtn" onclick="toggleShuffle(true)" class="px-3 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400">
+                <button id="sortShuffleBtn" onclick="toggleShuffle(true)" class="px-3 py-1.5 rounded-lg bg-slate-200 text-slate-600">
                     🎲 シャッフル
                 </button>
             </div>
         </div>
 
+        <!-- 辞書セクション -->
         <div id="sectionDictionary" class="hidden pr-6">
-            <div class="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 text-amber-800 dark:text-amber-400 rounded-xl p-3 text-xs mb-4 text-center font-medium">
+            <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 text-xs mb-4 text-center font-medium">
                 📖 ABC順 辞書モード (右端の文字でジャンプ)
             </div>
         </div>
 
+        <!-- 単語一覧表示エリア -->
         <div id="wordList" class="space-y-3 pb-12 pr-6"></div>
 
     </main>
 
-    <nav class="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shadow-2xl z-[200] transition-colors" style="padding-bottom: var(--sab);">
+    <!-- 下部ナビゲーション -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-2xl z-[200]" style="padding-bottom: var(--sab);">
         <div class="max-w-md mx-auto flex justify-around items-center py-3">
-            <button onclick="switchMainMode('wordbook')" id="navWordbook" class="flex flex-col items-center gap-1 text-indigo-600 dark:text-indigo-400 w-1/2 py-1">
+            <button onclick="switchMainMode('wordbook')" id="navWordbook" class="flex flex-col items-center gap-1 text-indigo-600 w-1/2 py-1">
                 <span class="text-2xl">🚀</span>
                 <span class="text-[10px] font-bold">単語帳</span>
             </button>
-            <button onclick="switchMainMode('dictionary')" id="navDictionary" class="flex flex-col items-center gap-1 text-slate-400 dark:text-slate-500 w-1/2 py-1">
+            <button onclick="switchMainMode('dictionary')" id="navDictionary" class="flex flex-col items-center gap-1 text-slate-400 w-1/2 py-1">
                 <span class="text-2xl">📖</span>
                 <span class="text-[10px] font-bold">ABC辞書</span>
             </button>
@@ -129,7 +130,6 @@
 
     <script>
         const STORAGE_KEY = 'myWordbookTrainV1';
-        const DARK_MODE_KEY = 'myWordbookDarkMode';
         
         let words = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
         let currentTab = 'learning';
@@ -141,49 +141,13 @@
 
         function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(words)); }
 
-        // 🆕 確実に往復できるようにクラス名とスタイルを固定する
-        function toggleDarkMode() {
-            const body = document.getElementById('appBody');
-            const btn = document.getElementById('darkModeBtn');
-            const isDark = body.classList.toggle('dark');
-            
-            if (isDark) {
-                document.documentElement.classList.add('dark');
-                btn.innerText = "ライト";
-                btn.className = "h-12 px-3 flex items-center justify-center text-[11px] font-bold bg-slate-700 text-white border border-slate-600 rounded-xl shadow-sm active:scale-95 transition-all flex-shrink-0";
-                body.className = "bg-slate-900 text-slate-100 min-h-screen transition-colors duration-200";
-                localStorage.setItem(DARK_MODE_KEY, 'true');
-            } else {
-                document.documentElement.classList.remove('dark');
-                btn.innerText = "ダーク";
-                btn.className = "h-12 px-3 flex items-center justify-center text-[11px] font-bold bg-slate-200 text-slate-700 border border-slate-300 rounded-xl shadow-sm active:scale-95 transition-all flex-shrink-0";
-                body.className = "bg-slate-50 text-slate-900 min-h-screen transition-colors duration-200";
-                localStorage.setItem(DARK_MODE_KEY, 'false');
-            }
-            renderWords();
-        }
-
-        function initDarkMode() {
-            const savedDark = localStorage.getItem(DARK_MODE_KEY);
-            const body = document.getElementById('appBody');
-            const btn = document.getElementById('darkModeBtn');
-            
-            if (savedDark === 'true' || (!savedDark && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                body.classList.add('dark');
-                document.documentElement.classList.add('dark');
-                btn.innerText = "ライト";
-                btn.className = "h-12 px-3 flex items-center justify-center text-[11px] font-bold bg-slate-700 text-white border border-slate-600 rounded-xl shadow-sm active:scale-95 transition-all flex-shrink-0";
-                body.className = "bg-slate-900 text-slate-100 min-h-screen transition-colors duration-200";
-            }
-        }
-
         function initSidebar() {
             const sidebar = document.getElementById('azSidebar');
             sidebar.innerHTML = '';
             for (let i = 65; i <= 90; i++) {
                 const letter = String.fromCharCode(i);
                 const btn = document.createElement('button');
-                btn.className = "text-[9px] font-bold text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 block w-full text-center py-0.5";
+                btn.className = "text-[9px] font-bold text-slate-400 block w-full text-center py-0.5";
                 btn.innerText = letter;
                 btn.onclick = () => scrollToLetter(letter);
                 sidebar.appendChild(btn);
@@ -206,12 +170,8 @@
             document.getElementById('sectionDictionary').classList.toggle('hidden', mode !== 'dictionary');
             document.getElementById('azSidebar').classList.toggle('hidden', mode !== 'dictionary');
             
-            const isDark = document.getElementById('appBody').classList.contains('dark');
-            const activeColorClass = isDark ? 'text-indigo-400' : 'text-indigo-600';
-            const inactiveColorClass = isDark ? 'text-slate-500' : 'text-slate-400';
-
-            document.getElementById('navWordbook').className = `flex flex-col items-center gap-1 w-1/2 py-1 ${mode === 'wordbook' ? activeColorClass : inactiveColorClass}`;
-            document.getElementById('navDictionary').className = `flex flex-col items-center gap-1 w-1/2 py-1 ${mode === 'dictionary' ? activeColorClass : inactiveColorClass}`;
+            document.getElementById('navWordbook').className = `flex flex-col items-center gap-1 w-1/2 py-1 ${mode === 'wordbook' ? 'text-indigo-600' : 'text-slate-400'}`;
+            document.getElementById('navDictionary').className = `flex flex-col items-center gap-1 w-1/2 py-1 ${mode === 'dictionary' ? 'text-indigo-600' : 'text-slate-400'}`;
             
             document.getElementById('headerTitle').innerText = mode === 'wordbook' ? "マイ単語帳 🚀" : "ABC順 辞書モード 📖";
             renderWords();
@@ -223,16 +183,16 @@
             const shufBtn = document.getElementById('sortShuffleBtn');
 
             if (isShuffleMode) {
-                normBtn.className = "px-3 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400";
-                shufBtn.className = "px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50 shadow-sm";
+                normBtn.className = "px-3 py-1.5 rounded-lg bg-slate-200 text-slate-600";
+                shufBtn.className = "px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-sm";
                 shuffledIndices = words.map((_, i) => i);
                 for (let i = shuffledIndices.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
                     [shuffledIndices[i], shuffledIndices[j]] = [shuffledIndices[j], shuffledIndices[i]];
                 }
             } else {
-                normBtn.className = "px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50 shadow-sm";
-                shufBtn.className = "px-3 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400";
+                normBtn.className = "px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-sm";
+                shufBtn.className = "px-3 py-1.5 rounded-lg bg-slate-200 text-slate-600";
             }
             renderWords();
         }
@@ -246,11 +206,11 @@
             const remainingDays = Math.ceil(remainingMs / (24 * 60 * 60 * 1000));
 
             if (remainingDays >= 3) {
-                return `<span class="text-[9px] bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50 px-1.5 py-0.5 rounded ml-1.5 font-bold">3日後復習</span>`;
+                return `<span class="text-[9px] bg-emerald-50 text-emerald-600 border border-emerald-200 px-1.5 py-0.5 rounded ml-1.5 font-bold">3日後復習</span>`;
             } else if (remainingDays === 2) {
-                return `<span class="text-[9px] bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900/50 px-1.5 py-0.5 rounded ml-1.5 font-bold">2日後復習</span>`;
+                return `<span class="text-[9px] bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded ml-1.5 font-bold">2日後復習</span>`;
             } else if (remainingDays === 1) {
-                return `<span class="text-[9px] bg-red-50 dark:bg-red-950/30 text-red-500 dark:text-red-400 border border-red-200 dark:border-red-900/50 px-1.5 py-0.5 rounded ml-1.5 font-bold">1日後復習</span>`;
+                return `<span class="text-[9px] bg-red-50 text-red-500 border border-red-200 px-1.5 py-0.5 rounded ml-1.5 font-bold">1日後復習</span>`;
             } else {
                 return `<span class="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded ml-1.5 font-bold animate-pulse">今日復習！</span>`;
             }
@@ -281,7 +241,7 @@
             }
 
             if (displayObjects.length === 0) {
-                listElement.innerHTML = `<div class="text-center py-10 text-slate-400 dark:text-slate-500 text-sm">データがありません</div>`;
+                listElement.innerHTML = `<div class="text-center py-10 text-slate-400 text-sm">データがありません</div>`;
                 return;
             }
 
@@ -297,24 +257,113 @@
                         lastLetter = firstLetter;
                         const heading = document.createElement('div');
                         heading.id = `heading-${firstLetter}`;
-                        heading.className = "text-xs font-bold text-indigo-600 dark:text-indigo-400 pt-3 pb-1 border-b border-indigo-100 dark:border-indigo-900/40 uppercase tracking-wider";
+                        heading.className = "text-xs font-bold text-indigo-600 pt-3 pb-1 border-b border-indigo-100 uppercase tracking-wider";
                         heading.innerText = firstLetter;
                         listElement.appendChild(heading);
                     }
                 }
 
                 const card = document.createElement('div');
-                card.className = "bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-700/50 flex justify-between items-center active:bg-slate-50 dark:active:bg-slate-750 tappable transition-colors";
+                card.className = "bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex justify-between items-center active:bg-slate-50 tappable";
                 
                 let actionBtn = "";
                 if (mainMode === 'wordbook') {
                     actionBtn = item.status === 'learning' 
-                        ? `<button onclick="updateStatus(${originalIndex}, 'mastered')" class="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-900/30 font-bold py-3 px-4 rounded-xl text-xs whitespace-nowrap min-w-[70px]">✓ 覚えた</button>`
-                        : `<button onclick="updateStatus(${originalIndex}, 'learning')" class="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 font-medium py-2 px-3 text-[10px] rounded-lg whitespace-nowrap">戻す</button>`;
+                        ? `<button onclick="updateStatus(${originalIndex}, 'mastered')" class="bg-emerald-50 text-emerald-600 border border-emerald-100/50 font-bold py-3 px-4 rounded-xl text-xs whitespace-nowrap min-w-[70px]">✓ 覚えた</button>`
+                        : `<button onclick="updateStatus(${originalIndex}, 'learning')" class="bg-slate-100 text-slate-600 font-medium py-2 px-3 text-[10px] rounded-lg whitespace-nowrap">戻す</button>`;
                 } else {
-                    actionBtn = `<span class="text-[9px] font-bold px-2 py-1 rounded whitespace-nowrap ${item.status === 'learning' ? 'bg-amber-50 dark:bg-amber-950/20 text-amber-600' : 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600'}">${item.status === 'learning' ? '未習得' : '習得済'}</span>`;
+                    actionBtn = `<span class="text-[9px] font-bold px-2 py-1 rounded whitespace-nowrap ${item.status === 'learning' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}">${item.status === 'learning' ? '未習得' : '習得済'}</span>`;
                 }
 
                 let timeBadge = "";
                 if (currentMode === 'ebbinghaus' && item.status === 'mastered') {
                     timeBadge = getCountdownBadge(item.masteredAt);
+                }
+
+                card.innerHTML = `
+                    <div class="flex-1 pr-3" onclick="toggleBlur(${originalIndex})">
+                        <div class="flex items-center gap-1">
+                            <p class="text-base font-bold text-slate-900">${item.word}</p>
+                            ${timeBadge}
+                        </div>
+                        <p id="meaning-${originalIndex}" class="text-indigo-600 text-sm font-medium mt-1 blur-fix transition-all pointer-events-none">${item.meaning}</p>
+                        <div class="flex gap-4 mt-2">
+                            <button onclick="event.stopPropagation(); editWord(${originalIndex})" class="text-[10px] text-slate-400">✏️ 編集</button>
+                            <button onclick="event.stopPropagation(); deleteWord(${originalIndex})" class="text-[10px] text-red-300">🗑️ 削除</button>
+                        </div>
+                    </div>
+                    <div class="flex-shrink-0 ml-auto pl-2">${actionBtn}</div>
+                `;
+                listElement.appendChild(card);
+            });
+        }
+
+        function addWord() {
+            const w = document.getElementById('wordInput');
+            const m = document.getElementById('meaningInput');
+            if (!w.value.trim() || !m.value.trim()) return alert("入力してください");
+            words.unshift({ word: w.value.trim(), meaning: m.value.trim(), status: 'learning', masteredAt: null });
+            w.value = ''; m.value = '';
+            save(); 
+            if (isShuffleMode) toggleShuffle(true); else renderWords();
+        }
+
+        function updateStatus(index, status) {
+            words[index].status = status;
+            words[index].masteredAt = (status === 'mastered') ? Date.now() : null;
+            save(); renderWords();
+        }
+
+        function toggleBlur(index) {
+            const el = document.getElementById(`meaning-${index}`);
+            if(el) el.classList.toggle('blur-fix');
+        }
+
+        function deleteWord(index) {
+            if(confirm("削除しますか？")) { 
+                words.splice(index, 1); 
+                save(); 
+                if (isShuffleMode) toggleShuffle(true); else renderWords();
+            }
+        }
+
+        function editWord(index) {
+            const w = prompt("英単語", words[index].word);
+            const m = prompt("意味", words[index].meaning);
+            if (w && m) { words[index].word = w; words[index].meaning = m; save(); renderWords(); }
+        }
+
+        function switchTab(tab) { 
+            currentTab = tab; 
+            const tl = document.getElementById('tabLearning');
+            const tm = document.getElementById('tabMastered');
+
+            if(tab === 'learning') {
+                tl.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm`;
+                tm.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-500 bg-transparent`;
+            } else {
+                tl.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-500 bg-transparent`;
+                tm.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm`;
+            }
+            renderWords(); 
+        }
+        
+        function changeMode() { currentMode = document.getElementById('modeSelect').value; renderWords(); }
+
+        function checkEbbinghausEffect() {
+            const now = Date.now();
+            let changed = false;
+            words.forEach(w => {
+                if (currentMode === 'ebbinghaus' && w.status === 'mastered' && w.masteredAt && (now - w.masteredAt > 72*3600000)) {
+                    w.status = 'learning'; w.masteredAt = null; changed = true;
+                }
+            });
+            if (changed) { save(); renderWords(); }
+        }
+
+        initSidebar();
+        setInterval(() => { checkEbbinghausEffect(); renderWords(); }, 60000);
+        renderWords();
+    </script>
+</body>
+</html>
