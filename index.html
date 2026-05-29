@@ -41,11 +41,17 @@
             padding: 8px 0;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
+        
+        /* 再生中のハイライト用アニメーション */
+        .playing-highlight {
+            border-color: #3b82f6 !important;
+            background-color: #eff6ff !important;
+            transition: all 0.3s ease;
+        }
     </style>
 </head>
 <body id="appBody" class="bg-slate-50 min-h-screen" style="padding-bottom: calc(100px + var(--sab));">
 
-    <!-- ヘッダー -->
     <header id="appHeader" class="bg-indigo-600 text-white shadow-md sticky top-0 z-[100] transition-colors duration-300" style="padding-top: var(--sat); padding-bottom: 12px;">
         <div class="max-w-md mx-auto text-center pt-4">
             <h1 id="headerTitle" class="text-lg font-bold">マイ単語帳 🚀</h1>
@@ -54,10 +60,8 @@
 
     <main class="max-w-md mx-auto px-4 mt-4 relative">
         
-        <!-- 辞書モードの時だけ右端に出る A-Z サイドバー -->
         <div id="azSidebar" class="index-sidebar hidden"></div>
         
-        <!-- 単語帳セクション -->
         <div id="sectionWordbook">
             <div class="mb-4">
                 <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-100">
@@ -81,7 +85,6 @@
                 </div>
             </div>
 
-            <!-- タブ -->
             <div class="bg-slate-200 p-1 rounded-xl flex mb-3">
                 <button id="tabLearning" onclick="switchTab('learning')" class="w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white text-indigo-600 shadow-sm">
                     未習得 (<span id="countLearning">0</span>)
@@ -91,7 +94,6 @@
                 </button>
             </div>
 
-            <!-- シャッフル・並び替えコントローラー -->
             <div class="flex justify-between items-center mb-4 text-[11px] font-bold">
                 <div id="dayFilterGroup" class="flex gap-0.5 bg-slate-200 p-0.5 rounded-lg hidden">
                     <button id="filterDayAll" onclick="changeDayFilter('all')" class="px-2 py-1 rounded bg-white text-emerald-600 shadow-sm">すべて</button>
@@ -110,27 +112,44 @@
             </div>
         </div>
 
-        <!-- 辞書セクション -->
+        <div id="sectionAudioMode" class="hidden">
+            <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 mb-4 text-center">
+                <p class="text-xs text-slate-400 font-bold mb-2">ハンズフリー連続再生</p>
+                <div class="flex justify-center gap-2">
+                    <button id="startAudioBtn" onclick="startContinuousPlayback()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl text-sm shadow-md flex items-center gap-2 transition-all">
+                        <span>▶️ 自動読み上げスタート</span>
+                    </button>
+                    <button id="stopAudioBtn" onclick="stopContinuousPlayback()" class="bg-slate-200 text-slate-600 font-bold py-3 px-4 rounded-xl text-sm hidden">
+                        ⏱️ ストップ
+                    </button>
+                </div>
+                <p id="audioStatusText" class="text-[11px] text-slate-500 mt-3 font-medium">リスト内の単語を上から順番に自動再生します</p>
+            </div>
+            <div class="text-xs font-bold text-slate-400 mb-2 px-1">読み上げ対象の単語 (<span id="countAudioList">0</span>)</div>
+        </div>
+
         <div id="sectionDictionary" class="hidden pr-6">
             <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 text-xs mb-4 text-center font-medium">
                 📖 ABC順 辞書モード (右端の文字でジャンプ)
             </div>
         </div>
 
-        <!-- 単語一覧表示エリア -->
         <div id="wordList" class="space-y-3 pb-12 pr-6"></div>
 
     </main>
 
-    <!-- 下部ナビゲーション -->
     <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-2xl z-[200]" style="padding-bottom: var(--sab);">
         <div class="max-w-md mx-auto flex justify-around items-center py-3">
-            <button onclick="switchMainMode('wordbook')" id="navWordbook" class="flex flex-col items-center gap-1 text-indigo-600 w-1/2 py-1">
-                <span class="text-2xl">🚀</span>
+            <button onclick="switchMainMode('wordbook')" id="navWordbook" class="flex flex-col items-center gap-1 text-indigo-600 w-1/3 py-1">
+                <span class="text-xl">🚀</span>
                 <span class="text-[10px] font-bold">単語帳</span>
             </button>
-            <button onclick="switchMainMode('dictionary')" id="navDictionary" class="flex flex-col items-center gap-1 text-slate-400 w-1/2 py-1">
-                <span class="text-2xl">📖</span>
+            <button onclick="switchMainMode('audio')" id="navAudio" class="flex flex-col items-center gap-1 text-slate-400 w-1/3 py-1">
+                <span class="text-xl">👂</span>
+                <span class="text-[10px] font-bold">読み上げ</span>
+            </button>
+            <button onclick="switchMainMode('dictionary')" id="navDictionary" class="flex flex-col items-center gap-1 text-slate-400 w-1/3 py-1">
+                <span class="text-xl">📖</span>
                 <span class="text-[10px] font-bold">ABC辞書</span>
             </button>
         </div>
@@ -148,32 +167,114 @@
         let isShuffleMode = false;
         let shuffledIndices = [];
 
+        // 🆕 連続再生用の管理変数
+        let isAudioPlaying = false;
+        let audioPlayIndex = 0;
+        let audioTimeoutId = null;
+        let currentDisplayObjects = []; // 画面に表示されている要素の参照用
+
         function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(words)); }
 
-        // 🆕 音声読み上げ関数（英語を読んだあと、1秒あけて日本語を喋る）
-        function speakWord(englishText, japaneseText) {
-            // すべての再生中音声をいったんストップ
+        function speakWord(englishText, japaneseText, callback) {
             window.speechSynthesis.cancel();
 
-            // 1. 英語の発音設定
             const englishUtterance = new SpeechSynthesisUtterance(englishText);
-            englishUtterance.lang = 'en-US'; // アメリカ英語
-            englishUtterance.rate = 0.9;     // 聞き取りやすいようほんの少しだけゆっくり
+            englishUtterance.lang = 'en-US';
+            englishUtterance.rate = 0.9;
 
-            // 2. 日本語の意味設定
             const japaneseUtterance = new SpeechSynthesisUtterance(japaneseText);
-            japaneseUtterance.lang = 'ja-JP'; // 日本語
+            japaneseUtterance.lang = 'ja-JP';
             japaneseUtterance.rate = 1.0;
 
-            // 英語の読み上げが終わったら、1秒待ってから日本語を再生する
             englishUtterance.onend = () => {
-                setTimeout(() => {
+                if (!isAudioPlaying && !callback) return; // 単発再生の時は即終了
+                
+                audioTimeoutId = setTimeout(() => {
+                    japaneseUtterance.onend = () => {
+                        if (callback) callback(); // 連続再生用の次ステップへ
+                    };
                     window.speechSynthesis.speak(japaneseUtterance);
-                }, 1000); // 1000ミリ秒 = 1秒
+                }, 1000); // 英語と日本語の間の「間」
             };
 
-            // 再生開始
             window.speechSynthesis.speak(englishUtterance);
+        }
+
+        // 🆕 連続自動再生スタート
+        function startContinuousPlayback() {
+            const audioWords = words.filter(w => w.inAudioMode === true);
+            if (audioWords.length === 0) {
+                alert("読み上げモードに追加された単語がありません。単語カードの「読み上げ追加」ボタンを押して登録してください。");
+                return;
+            }
+
+            isAudioPlaying = true;
+            audioPlayIndex = 0;
+            document.getElementById('startAudioBtn').classList.add('hidden');
+            document.getElementById('stopAudioBtn').classList.remove('hidden');
+            
+            playNextAudioItem();
+        }
+
+        // 🆕 次の単語を再生するループ処理
+        function playNextAudioItem() {
+            if (!isAudioPlaying) return;
+
+            // 再生する対象（現在の表示リスト＝読み上げ登録された単語）
+            if (audioPlayIndex >= currentDisplayObjects.length) {
+                // すべて読み終わったら終了
+                stopContinuousPlayback();
+                document.getElementById('audioStatusText').innerText = "🎉 すべての単語の読み上げが完了しました！";
+                return;
+            }
+
+            // 全単語のハイライトをいったん消去
+            const cards = document.querySelectorAll('.tappable');
+            cards.forEach(c => c.classList.remove('playing-highlight'));
+
+            // 現在再生中のカードをハイライト
+            const currentCard = document.getElementById(`card-${audioPlayIndex}`);
+            if (currentCard) {
+                currentCard.classList.add('playing-highlight');
+                currentCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            const obj = currentDisplayObjects[audioPlayIndex];
+            document.getElementById('audioStatusText').innerText = `🎵 再生中 (${audioPlayIndex + 1}/${currentDisplayObjects.length}): ${obj.item.word}`;
+
+            speakWord(obj.item.word, obj.item.meaning, () => {
+                // 日本語を話し終わった後の「間」をあけて次の単語へ
+                audioTimeoutId = setTimeout(() => {
+                    audioPlayIndex++;
+                    playNextAudioItem();
+                }, 1500); // 次の単語へ行くまでの秒数（1.5秒）
+            });
+        }
+
+        // 🆕 連続自動再生ストップ
+        function stopContinuousPlayback() {
+            isAudioPlaying = false;
+            window.speechSynthesis.cancel();
+            clearTimeout(audioTimeoutId);
+            
+            document.getElementById('startAudioBtn').classList.remove('hidden');
+            document.getElementById('stopAudioBtn').classList.add('hidden');
+            document.getElementById('audioStatusText').innerText = "読み上げを停止しました。";
+            
+            // ハイライトを消去
+            const cards = document.querySelectorAll('.tappable');
+            cards.forEach(c => c.classList.remove('playing-highlight'));
+        }
+
+        // 🆕 読み上げモードへの登録・解除の切り替え
+        function toggleAudioMode(originalIndex) {
+            if (words[originalIndex].inAudioMode) {
+                words[originalIndex].inAudioMode = false;
+            } else {
+                words[originalIndex].inAudioMode = true;
+            }
+            save();
+            renderWords();
         }
 
         function initSidebar() {
@@ -200,18 +301,29 @@
         }
 
         function switchMainMode(mode) {
+            // モード切り替え時は自動読み上げを安全に止める
+            if (isAudioPlaying && mode !== 'audio') {
+                stopContinuousPlayback();
+            }
+
             mainMode = mode;
             document.getElementById('sectionWordbook').classList.toggle('hidden', mode !== 'wordbook');
+            document.getElementById('sectionAudioMode').classList.toggle('hidden', mode !== 'audio');
             document.getElementById('sectionDictionary').classList.toggle('hidden', mode !== 'dictionary');
             document.getElementById('azSidebar').classList.toggle('hidden', mode !== 'dictionary');
             
-            const themeColor = currentMode === 'ebbinghaus' ? 'text-emerald-600' : 'text-indigo-600';
+            let themeColor = 'text-indigo-600';
+            if (currentMode === 'ebbinghaus') themeColor = 'text-emerald-600';
+            if (mode === 'audio') themeColor = 'text-blue-600'; // 読み上げモードの時は青テーマ
             
-            document.getElementById('navWordbook').className = `flex flex-col items-center gap-1 w-1/2 py-1 ${mode === 'wordbook' ? themeColor : 'text-slate-400'}`;
-            document.getElementById('navDictionary').className = `flex flex-col items-center gap-1 w-1/2 py-1 ${mode === 'dictionary' ? themeColor : 'text-slate-400'}`;
+            document.getElementById('navWordbook').className = `flex flex-col items-center gap-1 w-1/3 py-1 ${mode === 'wordbook' ? themeColor : 'text-slate-400'}`;
+            document.getElementById('navAudio').className = `flex flex-col items-center gap-1 w-1/3 py-1 ${mode === 'audio' ? themeColor : 'text-slate-400'}`;
+            document.getElementById('navDictionary').className = `flex flex-col items-center gap-1 w-1/3 py-1 ${mode === 'dictionary' ? themeColor : 'text-slate-400'}`;
             
             if (mode === 'wordbook') {
                 document.getElementById('headerTitle').innerText = "マイ単語帳 🚀";
+            } else if (mode === 'audio') {
+                document.getElementById('headerTitle').innerText = "連続聴き流しモード 👂";
             } else {
                 document.getElementById('headerTitle').innerText = currentMode === 'ebbinghaus' ? "ABC順 辞書モード 🧠" : "ABC順 辞書モード 📖";
             }
@@ -293,9 +405,11 @@
             const listElement = document.getElementById('wordList');
             const learningWords = words.filter(w => w.status === 'learning');
             const masteredWords = words.filter(w => w.status === 'mastered');
+            const audioWords = words.filter(w => w.inAudioMode === true);
             
             document.getElementById('countLearning').innerText = learningWords.length;
             document.getElementById('countMastered').innerText = masteredWords.length;
+            document.getElementById('countAudioList').innerText = audioWords.length;
 
             listElement.innerHTML = '';
             let baseWords = [];
@@ -306,35 +420,40 @@
                 baseWords = words.map((w, idx) => ({ item: w, originalIndex: idx }));
             }
 
-            let displayObjects = [];
+            // 画面のモードによってリストの出し分け
             if (mainMode === 'wordbook') {
-                displayObjects = baseWords.filter(obj => obj.item.status === currentTab);
-                
+                currentDisplayObjects = baseWords.filter(obj => obj.item.status === currentTab);
                 if (currentMode === 'ebbinghaus' && currentTab === 'mastered' && currentDayFilter !== 'all') {
-                    displayObjects = displayObjects.filter(obj => {
+                    currentDisplayObjects = currentDisplayObjects.filter(obj => {
                         const rem = getRemainingDays(obj.item.masteredAt);
-                        if (currentDayFilter === 1) {
-                            return rem <= 1;
-                        }
+                        if (currentDayFilter === 1) return rem <= 1;
                         return rem === currentDayFilter;
                     });
                 }
+            } else if (mainMode === 'audio') {
+                // 🆕 読み上げモード画面の時は、登録された単語だけを出す
+                currentDisplayObjects = baseWords.filter(obj => obj.item.inAudioMode === true);
             } else {
-                displayObjects = [...baseWords].sort((a, b) => a.item.word.toLowerCase().localeCompare(b.item.word.toLowerCase()));
+                currentDisplayObjects = [...baseWords].sort((a, b) => a.item.word.toLowerCase().localeCompare(b.item.word.toLowerCase()));
             }
 
-            if (displayObjects.length === 0) {
+            if (currentDisplayObjects.length === 0) {
                 listElement.innerHTML = `<div class="text-center py-10 text-slate-400 text-sm">データがありません</div>`;
                 return;
             }
 
             let lastLetter = "";
-            const textThemeColor = currentMode === 'ebbinghaus' ? 'text-emerald-600' : 'text-indigo-600';
-            const borderThemeColor = currentMode === 'ebbinghaus' ? 'border-emerald-100' : 'border-indigo-100';
-            // スピーカーボタンの背景色
-            const speakerBgColor = currentMode === 'ebbinghaus' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600';
+            let textThemeColor = currentMode === 'ebbinghaus' ? 'text-emerald-600' : 'text-indigo-600';
+            let borderThemeColor = currentMode === 'ebbinghaus' ? 'border-emerald-100' : 'border-indigo-100';
+            let speakerBgColor = currentMode === 'ebbinghaus' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600';
 
-            displayObjects.forEach((obj) => {
+            if (mainMode === 'audio') {
+                textThemeColor = 'text-blue-600';
+                borderThemeColor = 'border-blue-100';
+                speakerBgColor = 'bg-blue-50 text-blue-600';
+            }
+
+            currentDisplayObjects.forEach((obj, localIndex) => {
                 const item = obj.item;
                 const originalIndex = obj.originalIndex;
                 
@@ -351,6 +470,7 @@
                 }
 
                 const card = document.createElement('div');
+                card.id = `card-${localIndex}`; // 連続再生中のハイライト制御用にIDを付与
                 card.className = "bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex justify-between items-center active:bg-slate-50 tappable";
                 
                 let actionBtn = "";
@@ -358,6 +478,9 @@
                     actionBtn = item.status === 'learning' 
                         ? `<button onclick="updateStatus(${originalIndex}, 'mastered')" class="bg-emerald-50 text-emerald-600 border border-emerald-100/50 font-bold py-3 px-4 rounded-xl text-xs whitespace-nowrap min-w-[70px]">✓ 覚えた</button>`
                         : `<button onclick="updateStatus(${originalIndex}, 'learning')" class="bg-slate-100 text-slate-600 font-medium py-2 px-3 text-[10px] rounded-lg whitespace-nowrap">戻す</button>`;
+                } else if (mainMode === 'audio') {
+                    // 読み上げ画面での右側ボタン
+                    actionBtn = `<span class="text-[9px] font-bold px-2 py-1 rounded whitespace-nowrap ${item.status === 'learning' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}">${item.status === 'learning' ? '未習得' : '習得済'}</span>`;
                 } else {
                     actionBtn = `<span class="text-[9px] font-bold px-2 py-1 rounded whitespace-nowrap ${item.status === 'learning' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}">${item.status === 'learning' ? '未習得' : '習得済'}</span>`;
                 }
@@ -367,24 +490,30 @@
                     timeBadge = getCountdownBadge(item.masteredAt);
                 }
 
-                // 安全に文字を渡すためのエスケープ処理
                 const safeWord = item.word.replace(/'/g, "\\'");
                 const safeMeaning = item.meaning.replace(/'/g, "\\'");
+
+                // 🆕 読み上げモードに登録されているかでボタンのデザインを変える
+                const audioBtnText = item.inAudioMode ? "➖ 読み上げ解除" : "➕ 読み上げ追加";
+                const audioBtnClass = item.inAudioMode ? "text-blue-500 font-semibold" : "text-slate-400";
+
+                // 読み上げモード画面の時は、モザイク（ぼかし）を自動解除して見やすくする
+                const blurClass = mainMode === 'audio' ? '' : 'blur-fix';
 
                 card.innerHTML = `
                     <div class="flex-1 pr-3" onclick="toggleBlur(${originalIndex})">
                         <div class="flex items-center gap-2">
                             <p class="text-base font-bold text-slate-900">${item.word}</p>
-                            <!-- 🆕 音声読み上げボタンを追加 -->
                             <button onclick="event.stopPropagation(); speakWord('${safeWord}', '${safeMeaning}')" class="${speakerBgColor} p-1.5 rounded-lg text-xs font-bold flex items-center justify-center shadow-sm active:scale-90 transition-transform" title="音声を再生">
                                 📢
                             </button>
                             ${timeBadge}
                         </div>
-                        <p id="meaning-${originalIndex}" class="${textThemeColor} text-sm font-medium mt-1 blur-fix transition-all pointer-events-none">${item.meaning}</p>
+                        <p id="meaning-${originalIndex}" class="${textThemeColor} text-sm font-medium mt-1 ${blurClass} transition-all pointer-events-none">${item.meaning}</p>
                         <div class="flex gap-4 mt-2">
                             <button onclick="event.stopPropagation(); editWord(${originalIndex})" class="text-[10px] text-slate-400">✏️ 編集</button>
                             <button onclick="event.stopPropagation(); deleteWord(${originalIndex})" class="text-[10px] text-red-300">🗑️ 削除</button>
+                            <button onclick="event.stopPropagation(); toggleAudioMode(${originalIndex})" class="text-[10px] ${audioBtnClass}">${audioBtnText}</button>
                         </div>
                     </div>
                     <div class="flex-shrink-0 ml-auto pl-2">${actionBtn}</div>
@@ -397,7 +526,8 @@
             const w = document.getElementById('wordInput');
             const m = document.getElementById('meaningInput');
             if (!w.value.trim() || !m.value.trim()) return alert("入力してください");
-            words.unshift({ word: w.value.trim(), meaning: m.value.trim(), status: 'learning', masteredAt: null });
+            // 新規追加時、inAudioModeフラグもデフォルトfalseで追加
+            words.unshift({ word: w.value.trim(), meaning: m.value.trim(), status: 'learning', masteredAt: null, inAudioMode: false });
             w.value = ''; m.value = '';
             save(); 
             if (isShuffleMode) toggleShuffle(true); else renderWords();
@@ -410,6 +540,8 @@
         }
 
         function toggleBlur(index) {
+            // 読み上げモード画面の時はモザイク解除不要
+            if (mainMode === 'audio') return;
             const el = document.getElementById(`meaning-${index}`);
             if(el) el.classList.toggle('blur-fix');
         }
@@ -422,63 +554,4 @@
             }
         }
 
-        function editWord(index) {
-            const w = prompt("英単語", words[index].word);
-            const m = prompt("意味", words[index].meaning);
-            if (w && m) { words[index].word = w; words[index].meaning = m; save(); renderWords(); }
-        }
-
-        function switchTab(tab) { 
-            currentTab = tab; 
-            const tl = document.getElementById('tabLearning');
-            const tm = document.getElementById('tabMastered');
-            const activeTextColor = currentMode === 'ebbinghaus' ? 'text-emerald-600' : 'text-indigo-600';
-
-            if(tab === 'learning') {
-                tl.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white ${activeTextColor} shadow-sm`;
-                tm.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-500 bg-transparent`;
-            } else {
-                tl.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-500 bg-transparent`;
-                tm.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white ${activeTextColor} shadow-sm`;
-            }
-            updateFilterBarVisibility();
-            renderWords(); 
-        }
-        
-        function changeMode() { 
-            currentMode = document.getElementById('modeSelect').value; 
-            
-            const header = document.getElementById('appHeader');
-            const addBtn = document.getElementById('addWordBtn');
-            
-            if (currentMode === 'ebbinghaus') {
-                header.className = "bg-emerald-600 text-white shadow-md sticky top-0 z-[100] transition-colors duration-300";
-                addBtn.className = "w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl shadow-sm active:opacity-80 transition-colors duration-300";
-            } else {
-                header.className = "bg-indigo-600 text-white shadow-md sticky top-0 z-[100] transition-colors duration-300";
-                addBtn.className = "w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-sm active:opacity-80 transition-colors duration-300";
-            }
-            
-            changeDayFilter('all');
-            switchTab(currentTab);
-            switchMainMode(mainMode);
-            toggleShuffle(isShuffleMode);
-        }
-
-        function checkEbbinghausEffect() {
-            const now = Date.now();
-            let changed = false;
-            words.forEach(w => {
-                if (currentMode === 'ebbinghaus' && w.status === 'mastered' && w.masteredAt && (now - w.masteredAt > 72*3600000)) {
-                    w.status = 'learning'; w.masteredAt = null; changed = true;
-                }
-            });
-            if (changed) { save(); renderWords(); }
-        }
-
-        initSidebar();
-        setInterval(() => { checkEbbinghausEffect(); renderWords(); }, 60000);
-        renderWords();
-    </script>
-</body>
-</html>
+        function
