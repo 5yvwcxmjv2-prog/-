@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Wordbook Dual Countdown Edition</title>
+    <title>Wordbook Dual Shuffle Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -76,12 +76,21 @@
                 </div>
             </div>
 
-            <div class="bg-slate-200 p-1 rounded-xl flex mb-4">
+            <div class="bg-slate-200 p-1 rounded-xl flex mb-3">
                 <button id="tabLearning" onclick="switchTab('learning')" class="w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm">
                     未習得 (<span id="countLearning">0</span>)
                 </button>
                 <button id="tabMastered" onclick="switchTab('mastered')" class="w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-500 bg-transparent">
                     習得済み 🎉 (<span id="countMastered">0</span>)
+                </button>
+            </div>
+
+            <div class="flex justify-end gap-1 mb-4 text-[11px] font-bold">
+                <button id="sortNormalBtn" onclick="toggleShuffle(false)" class="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-sm">
+                    ⏱️ 新しい順
+                </button>
+                <button id="sortShuffleBtn" onclick="toggleShuffle(true)" class="px-3 py-1.5 rounded-lg bg-slate-200 text-slate-600">
+                    🎲 シャッフル
                 </button>
             </div>
         </div>
@@ -110,12 +119,16 @@
     </nav>
 
     <script>
-        // 🚨【最重要】60単語を消さないために、前回と同じキーを100%キープしています！
+        // 🚨【最重要】60単語を絶対に消さないため、同じキーを完全にキープ！
         const STORAGE_KEY = 'myWordbookTrainV1';
         let words = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
         let currentTab = 'learning';
         let mainMode = 'wordbook';
         let currentMode = 'normal';
+        
+        // シャッフル状態を管理する変数
+        let isShuffleMode = false;
+        let shuffledIndices = []; // シャッフルされた時の順番を記録する配列
 
         function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(words)); }
 
@@ -157,29 +170,44 @@
             renderWords();
         }
 
-        // 🧠 経過時間から信号機のバッジ（文字と色）を計算する関数
+        // 🆕 シャッフルモードのON/OFFを切り替える関数
+        function toggleShuffle(enable) {
+            isShuffleMode = enable;
+            
+            const normBtn = document.getElementById('sortNormalBtn');
+            const shufBtn = document.getElementById('sortShuffleBtn');
+
+            if (isShuffleMode) {
+                normBtn.className = "px-3 py-1.5 rounded-lg bg-slate-200 text-slate-600";
+                shufBtn.className = "px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-sm";
+                // インデックスの配列を作ってランダムにシャッフル(Fisher-Yatesアルゴリズム)
+                shuffledIndices = words.map((_, i) => i);
+                for (let i = shuffledIndices.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffledIndices[i], shuffledIndices[j]] = [shuffledIndices[j], shuffledIndices[i]];
+                }
+            } else {
+                normBtn.className = "px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-sm";
+                shufBtn.className = "px-3 py-1.5 rounded-lg bg-slate-200 text-slate-600";
+            }
+            renderWords();
+        }
+
         function getCountdownBadge(masteredAt) {
             if (!masteredAt) return '';
-            
             const now = Date.now();
             const elapsedMs = now - masteredAt;
             const threeDaysMs = 72 * 60 * 60 * 1000;
             const remainingMs = threeDaysMs - elapsedMs;
-
-            // 残り時間を「日」に換算（小数点以下切り上げ）
             const remainingDays = Math.ceil(remainingMs / (24 * 60 * 60 * 1000));
 
             if (remainingDays >= 3) {
-                // 🟢 3日後（まだ余裕）
                 return `<span class="text-[9px] bg-emerald-50 text-emerald-600 border border-emerald-200 px-1.5 py-0.5 rounded ml-1.5 font-bold">3日後復習</span>`;
             } else if (remainingDays === 2) {
-                // 🟡 2日後（そろそろ危ない）
                 return `<span class="text-[9px] bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded ml-1.5 font-bold">2日後復習</span>`;
             } else if (remainingDays === 1) {
-                // 🔴 1日後（明日復活！）
                 return `<span class="text-[9px] bg-red-50 text-red-500 border border-red-200 px-1.5 py-0.5 rounded ml-1.5 font-bold">1日後復習</span>`;
             } else {
-                // 🔴 今日（まもなく自動復活します）
                 return `<span class="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded ml-1.5 font-bold animate-pulse">今日復習！</span>`;
             }
         }
@@ -193,23 +221,36 @@
             document.getElementById('countMastered').innerText = masteredWords.length;
 
             listElement.innerHTML = '';
-            let displayWords = [];
+            let baseWords = [];
 
-            if (mainMode === 'wordbook') {
-                displayWords = currentTab === 'learning' ? learningWords : masteredWords;
+            // 1. まずベースとなる配列の順番を決める
+            if (mainMode === 'wordbook' && isShuffleMode) {
+                // シャッフルモードの時は、事前に作ったランダム順を適用
+                baseWords = shuffledIndices.map(idx => ({ item: words[idx], originalIndex: idx }));
             } else {
-                displayWords = [...words].sort((a, b) => a.word.toLowerCase().localeCompare(b.word.toLowerCase()));
+                // 通常時、または辞書モードの時は元のインデックスを保持した配列を作る
+                baseWords = words.map((w, idx) => ({ item: w, originalIndex: idx }));
             }
 
-            if (displayWords.length === 0) {
+            // 2. モード（単語帳タブ or 辞書）に合わせてフィルタリングやソートをする
+            let displayObjects = [];
+            if (mainMode === 'wordbook') {
+                displayObjects = baseWords.filter(obj => obj.item.status === currentTab);
+            } else {
+                // 辞書モードは常にアルファベット順
+                displayObjects = [...baseWords].sort((a, b) => a.item.word.toLowerCase().localeCompare(b.item.word.toLowerCase()));
+            }
+
+            if (displayObjects.length === 0) {
                 listElement.innerHTML = `<div class="text-center py-10 text-slate-400 text-sm">データがありません</div>`;
                 return;
             }
 
             let lastLetter = "";
 
-            displayWords.forEach((item) => {
-                const originalIndex = words.findIndex(w => w.word === item.word && w.meaning === item.meaning);
+            displayObjects.forEach((obj) => {
+                const item = obj.item;
+                const originalIndex = obj.originalIndex;
                 
                 if (mainMode === 'dictionary') {
                     const firstLetter = item.word.charAt(0).toLowerCase();
@@ -235,7 +276,6 @@
                     actionBtn = `<span class="text-[9px] font-bold px-2 py-1 rounded whitespace-nowrap ${item.status === 'learning' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}">${item.status === 'learning' ? '未習得' : '習得済'}</span>`;
                 }
 
-                // 🧠 忘却曲線モードの時だけ信号機バッジを生成
                 let timeBadge = "";
                 if (currentMode === 'ebbinghaus' && item.status === 'mastered') {
                     timeBadge = getCountdownBadge(item.masteredAt);
@@ -265,7 +305,9 @@
             if (!w.value.trim() || !m.value.trim()) return alert("入力してください");
             words.unshift({ word: w.value.trim(), meaning: m.value.trim(), status: 'learning', masteredAt: null });
             w.value = ''; m.value = '';
-            save(); renderWords();
+            save(); 
+            // シャッフル中ならシャッフル配列を再生成
+            if (isShuffleMode) toggleShuffle(true); else renderWords();
         }
 
         function updateStatus(index, status) {
@@ -280,7 +322,11 @@
         }
 
         function deleteWord(index) {
-            if(confirm("削除しますか？")) { words.splice(index, 1); save(); renderWords(); }
+            if(confirm("削除しますか？")) { 
+                words.splice(index, 1); 
+                save(); 
+                if (isShuffleMode) toggleShuffle(true); else renderWords();
+            }
         }
 
         function editWord(index) {
@@ -318,7 +364,6 @@
         }
 
         initSidebar();
-        // 1分ごとに忘却曲線の復活チェックを走らせると同時に、カウントダウンの表示も最新化します
         setInterval(() => { checkEbbinghausEffect(); renderWords(); }, 60000);
         renderWords();
     </script>
