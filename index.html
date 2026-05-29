@@ -45,8 +45,8 @@
 </head>
 <body id="appBody" class="bg-slate-50 min-h-screen" style="padding-bottom: calc(100px + var(--sab));">
 
-    <!-- ヘッダー -->
-    <header class="bg-indigo-600 text-white shadow-md sticky top-0 z-[100]" style="padding-top: var(--sat); padding-bottom: 12px;">
+    <!-- ヘッダー（色の変化のために id="appHeader" を追加） -->
+    <header id="appHeader" class="bg-indigo-600 text-white shadow-md sticky top-0 z-[100] transition-colors duration-300" style="padding-top: var(--sat); padding-bottom: 12px;">
         <div class="max-w-md mx-auto text-center pt-4">
             <h1 id="headerTitle" class="text-lg font-bold">マイ単語帳 🚀</h1>
         </div>
@@ -75,7 +75,8 @@
                         <input type="text" id="wordInput" placeholder="英単語" class="w-1/2 px-3 py-3 text-base rounded-lg border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 appearance-none">
                         <input type="text" id="meaningInput" placeholder="意味" class="w-1/2 px-3 py-3 text-base rounded-lg border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 appearance-none">
                     </div>
-                    <button onclick="addWord()" class="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-sm active:bg-indigo-700">
+                    <!-- 追加ボタン（色の変化のために id="addWordBtn" を追加） -->
+                    <button id="addWordBtn" onclick="addWord()" class="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-sm active:opacity-80 transition-colors duration-300">
                         単語帳に追加する
                     </button>
                 </div>
@@ -83,7 +84,7 @@
 
             <!-- タブ -->
             <div class="bg-slate-200 p-1 rounded-xl flex mb-3">
-                <button id="tabLearning" onclick="switchTab('learning')" class="w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm">
+                <button id="tabLearning" onclick="switchTab('learning')" class="w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white text-indigo-600 shadow-sm">
                     未習得 (<span id="countLearning">0</span>)
                 </button>
                 <button id="tabMastered" onclick="switchTab('mastered')" class="w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-500 bg-transparent">
@@ -170,10 +171,16 @@
             document.getElementById('sectionDictionary').classList.toggle('hidden', mode !== 'dictionary');
             document.getElementById('azSidebar').classList.toggle('hidden', mode !== 'dictionary');
             
-            document.getElementById('navWordbook').className = `flex flex-col items-center gap-1 w-1/2 py-1 ${mode === 'wordbook' ? 'text-indigo-600' : 'text-slate-400'}`;
-            document.getElementById('navDictionary').className = `flex flex-col items-center gap-1 w-1/2 py-1 ${mode === 'dictionary' ? 'text-indigo-600' : 'text-slate-400'}`;
+            const themeColor = currentMode === 'ebbinghaus' ? 'text-emerald-600' : 'text-indigo-600';
             
-            document.getElementById('headerTitle').innerText = mode === 'wordbook' ? "マイ単語帳 🚀" : "ABC順 辞書モード 📖";
+            document.getElementById('navWordbook').className = `flex flex-col items-center gap-1 w-1/2 py-1 ${mode === 'wordbook' ? themeColor : 'text-slate-400'}`;
+            document.getElementById('navDictionary').className = `flex flex-col items-center gap-1 w-1/2 py-1 ${mode === 'dictionary' ? themeColor : 'text-slate-400'}`;
+            
+            if (mode === 'wordbook') {
+                document.getElementById('headerTitle').innerText = "マイ単語帳 🚀";
+            } else {
+                document.getElementById('headerTitle').innerText = currentMode === 'ebbinghaus' ? "ABC順 辞書モード 🧠" : "ABC順 辞書モード 📖";
+            }
             renderWords();
         }
 
@@ -181,17 +188,18 @@
             isShuffleMode = enable;
             const normBtn = document.getElementById('sortNormalBtn');
             const shufBtn = document.getElementById('sortShuffleBtn');
+            const themeBg = currentMode === 'ebbinghaus' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100';
 
             if (isShuffleMode) {
                 normBtn.className = "px-3 py-1.5 rounded-lg bg-slate-200 text-slate-600";
-                shufBtn.className = "px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-sm";
+                shufBtn.className = `px-3 py-1.5 rounded-lg ${themeBg} border shadow-sm`;
                 shuffledIndices = words.map((_, i) => i);
                 for (let i = shuffledIndices.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
                     [shuffledIndices[i], shuffledIndices[j]] = [shuffledIndices[j], shuffledIndices[i]];
                 }
             } else {
-                normBtn.className = "px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-sm";
+                normBtn.className = `px-3 py-1.5 rounded-lg ${themeBg} border shadow-sm`;
                 shufBtn.className = "px-3 py-1.5 rounded-lg bg-slate-200 text-slate-600";
             }
             renderWords();
@@ -246,6 +254,8 @@
             }
 
             let lastLetter = "";
+            const textThemeColor = currentMode === 'ebbinghaus' ? 'text-emerald-600' : 'text-indigo-600';
+            const borderThemeColor = currentMode === 'ebbinghaus' ? 'border-emerald-100' : 'border-indigo-100';
 
             displayObjects.forEach((obj) => {
                 const item = obj.item;
@@ -257,7 +267,7 @@
                         lastLetter = firstLetter;
                         const heading = document.createElement('div');
                         heading.id = `heading-${firstLetter}`;
-                        heading.className = "text-xs font-bold text-indigo-600 pt-3 pb-1 border-b border-indigo-100 uppercase tracking-wider";
+                        heading.className = `text-xs font-bold ${textThemeColor} pt-3 pb-1 border-b ${borderThemeColor} uppercase tracking-wider`;
                         heading.innerText = firstLetter;
                         listElement.appendChild(heading);
                     }
@@ -286,7 +296,7 @@
                             <p class="text-base font-bold text-slate-900">${item.word}</p>
                             ${timeBadge}
                         </div>
-                        <p id="meaning-${originalIndex}" class="text-indigo-600 text-sm font-medium mt-1 blur-fix transition-all pointer-events-none">${item.meaning}</p>
+                        <p id="meaning-${originalIndex}" class="${textThemeColor} text-sm font-medium mt-1 blur-fix transition-all pointer-events-none">${item.meaning}</p>
                         <div class="flex gap-4 mt-2">
                             <button onclick="event.stopPropagation(); editWord(${originalIndex})" class="text-[10px] text-slate-400">✏️ 編集</button>
                             <button onclick="event.stopPropagation(); deleteWord(${originalIndex})" class="text-[10px] text-red-300">🗑️ 削除</button>
@@ -337,18 +347,40 @@
             currentTab = tab; 
             const tl = document.getElementById('tabLearning');
             const tm = document.getElementById('tabMastered');
+            const activeTextColor = currentMode === 'ebbinghaus' ? 'text-emerald-600' : 'text-indigo-600';
 
             if(tab === 'learning') {
-                tl.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm`;
+                tl.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white ${activeTextColor} shadow-sm`;
                 tm.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-500 bg-transparent`;
             } else {
                 tl.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-500 bg-transparent`;
-                tm.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm`;
+                tm.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white ${activeTextColor} shadow-sm`;
             }
             renderWords(); 
         }
         
-        function changeMode() { currentMode = document.getElementById('modeSelect').value; renderWords(); }
+        // 🆕 モード変更時にテーマカラー（紫 ⇄ 緑）を動的に切り替える仕組み
+        function changeMode() { 
+            currentMode = document.getElementById('modeSelect').value; 
+            
+            const header = document.getElementById('appHeader');
+            const addBtn = document.getElementById('addWordBtn');
+            
+            if (currentMode === 'ebbinghaus') {
+                // 🧠 忘却曲線モードの時はエメラルドグリーンにする
+                header.className = "bg-emerald-600 text-white shadow-md sticky top-0 z-[100] transition-colors duration-300";
+                addBtn.className = "w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl shadow-sm active:opacity-80 transition-colors duration-300";
+            } else {
+                // 🔒 通常モードの時は元のインディゴ（紫）に戻す
+                header.className = "bg-indigo-600 text-white shadow-md sticky top-0 z-[100] transition-colors duration-300";
+                addBtn.className = "w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-sm active:opacity-80 transition-colors duration-300";
+            }
+            
+            // タブやナビゲーション、並び替えボタンなどの色もまとめて更新
+            switchTab(currentTab);
+            switchMainMode(mainMode);
+            toggleShuffle(isShuffleMode);
+        }
 
         function checkEbbinghausEffect() {
             const now = Date.now();
