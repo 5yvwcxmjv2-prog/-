@@ -68,8 +68,8 @@
                         <option value="ebbinghaus">🧠 忘却曲線(3日後)</option>
                     </select>
                 </div>
-                <button onclick="toggleDarkMode()" id="darkModeBtn" class="w-12 h-12 flex items-center justify-center text-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/50 rounded-xl shadow-sm active:scale-95 transition-all flex-shrink-0">
-                    🌙
+                <button onclick="toggleDarkMode()" id="darkModeBtn" class="h-12 px-3 flex items-center justify-center text-[11px] font-bold bg-slate-200 text-slate-700 border border-slate-300 rounded-xl shadow-sm active:scale-95 transition-all flex-shrink-0">
+                    ダーク
                 </button>
             </div>
             
@@ -141,6 +141,7 @@
 
         function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(words)); }
 
+        // 🆕 確実に往復できるようにクラス名とスタイルを固定する
         function toggleDarkMode() {
             const body = document.getElementById('appBody');
             const btn = document.getElementById('darkModeBtn');
@@ -148,12 +149,14 @@
             
             if (isDark) {
                 document.documentElement.classList.add('dark');
-                btn.innerText = "☀️";
+                btn.innerText = "ライト";
+                btn.className = "h-12 px-3 flex items-center justify-center text-[11px] font-bold bg-slate-700 text-white border border-slate-600 rounded-xl shadow-sm active:scale-95 transition-all flex-shrink-0";
                 body.className = "bg-slate-900 text-slate-100 min-h-screen transition-colors duration-200";
                 localStorage.setItem(DARK_MODE_KEY, 'true');
             } else {
                 document.documentElement.classList.remove('dark');
-                btn.innerText = "🌙";
+                btn.innerText = "ダーク";
+                btn.className = "h-12 px-3 flex items-center justify-center text-[11px] font-bold bg-slate-200 text-slate-700 border border-slate-300 rounded-xl shadow-sm active:scale-95 transition-all flex-shrink-0";
                 body.className = "bg-slate-50 text-slate-900 min-h-screen transition-colors duration-200";
                 localStorage.setItem(DARK_MODE_KEY, 'false');
             }
@@ -162,11 +165,15 @@
 
         function initDarkMode() {
             const savedDark = localStorage.getItem(DARK_MODE_KEY);
+            const body = document.getElementById('appBody');
+            const btn = document.getElementById('darkModeBtn');
+            
             if (savedDark === 'true' || (!savedDark && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                document.getElementById('appBody').classList.add('dark');
+                body.classList.add('dark');
                 document.documentElement.classList.add('dark');
-                document.getElementById('darkModeBtn').innerText = "☀️";
-                document.getElementById('appBody').className = "bg-slate-900 text-slate-100 min-h-screen transition-colors duration-200";
+                btn.innerText = "ライト";
+                btn.className = "h-12 px-3 flex items-center justify-center text-[11px] font-bold bg-slate-700 text-white border border-slate-600 rounded-xl shadow-sm active:scale-95 transition-all flex-shrink-0";
+                body.className = "bg-slate-900 text-slate-100 min-h-screen transition-colors duration-200";
             }
         }
 
@@ -311,97 +318,3 @@
                 let timeBadge = "";
                 if (currentMode === 'ebbinghaus' && item.status === 'mastered') {
                     timeBadge = getCountdownBadge(item.masteredAt);
-                }
-
-                card.innerHTML = `
-                    <div class="flex-1 pr-3" onclick="toggleBlur(${originalIndex})">
-                        <div class="flex items-center gap-1">
-                            <p class="text-base font-bold text-slate-900 dark:text-slate-100">${item.word}</p>
-                            ${timeBadge}
-                        </div>
-                        <p id="meaning-${originalIndex}" class="text-indigo-600 dark:text-indigo-400 text-sm font-medium mt-1 blur-fix transition-all pointer-events-none">${item.meaning}</p>
-                        <div class="flex gap-4 mt-2">
-                            <button onclick="event.stopPropagation(); editWord(${originalIndex})" class="text-[10px] text-slate-400 dark:text-slate-500">✏️ 編集</button>
-                            <button onclick="event.stopPropagation(); deleteWord(${originalIndex})" class="text-[10px] text-red-300 dark:text-red-900/60">🗑️ 削除</button>
-                        </div>
-                    </div>
-                    <div class="flex-shrink-0 ml-auto pl-2">${actionBtn}</div>
-                `;
-                listElement.appendChild(card);
-            });
-        }
-
-        function addWord() {
-            const w = document.getElementById('wordInput');
-            const m = document.getElementById('meaningInput');
-            if (!w.value.trim() || !m.value.trim()) return alert("入力してください");
-            words.unshift({ word: w.value.trim(), meaning: m.value.trim(), status: 'learning', masteredAt: null });
-            w.value = ''; m.value = '';
-            save(); 
-            if (isShuffleMode) toggleShuffle(true); else renderWords();
-        }
-
-        function updateStatus(index, status) {
-            words[index].status = status;
-            words[index].masteredAt = (status === 'mastered') ? Date.now() : null;
-            save(); renderWords();
-        }
-
-        function toggleBlur(index) {
-            const el = document.getElementById(`meaning-${index}`);
-            if(el) el.classList.toggle('blur-fix');
-        }
-
-        function deleteWord(index) {
-            if(confirm("削除しますか？")) { 
-                words.splice(index, 1); 
-                save(); 
-                if (isShuffleMode) toggleShuffle(true); else renderWords();
-            }
-        }
-
-        function editWord(index) {
-            const w = prompt("英単語", words[index].word);
-            const m = prompt("意味", words[index].meaning);
-            if (w && m) { words[index].word = w; words[index].meaning = m; save(); renderWords(); }
-        }
-
-        function switchTab(tab) { 
-            currentTab = tab; 
-            const tl = document.getElementById('tabLearning');
-            const tm = document.getElementById('tabMastered');
-            
-            const isDark = document.getElementById('appBody').classList.contains('dark');
-            const activeBgClass = isDark ? 'bg-slate-800 text-white' : 'bg-white text-slate-800 shadow-sm';
-            const inactiveTextClass = isDark ? 'text-slate-400' : 'text-slate-500';
-
-            if(tab === 'learning') {
-                tl.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all ${activeBgClass}`;
-                tm.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all ${inactiveTextClass} bg-transparent`;
-            } else {
-                tl.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all ${inactiveTextClass} bg-transparent`;
-                tm.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all ${activeBgClass}`;
-            }
-            renderWords(); 
-        }
-        
-        function changeMode() { currentMode = document.getElementById('modeSelect').value; renderWords(); }
-
-        function checkEbbinghausEffect() {
-            const now = Date.now();
-            let changed = false;
-            words.forEach(w => {
-                if (currentMode === 'ebbinghaus' && w.status === 'mastered' && w.masteredAt && (now - w.masteredAt > 72*3600000)) {
-                    w.status = 'learning'; w.masteredAt = null; changed = true;
-                }
-            });
-            if (changed) { save(); renderWords(); }
-        }
-
-        initDarkMode();
-        initSidebar();
-        setInterval(() => { checkEbbinghausEffect(); renderWords(); }, 60000);
-        renderWords();
-    </script>
-</body>
-</html>
