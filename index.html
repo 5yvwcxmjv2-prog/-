@@ -41,7 +41,6 @@
             padding: 8px 0;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
-        /* ダークモード時のサイドバー微調整 */
         .dark .index-sidebar {
             background: rgba(30,41,59,0.8);
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
@@ -51,12 +50,8 @@
 <body id="appBody" class="bg-slate-50 min-h-screen transition-colors duration-200" style="padding-bottom: calc(100px + var(--sab));">
 
     <header class="bg-indigo-600 text-white shadow-md sticky top-0 z-[100]" style="padding-top: var(--sat); padding-bottom: 12px;">
-        <div class="max-w-md mx-auto flex justify-between items-center px-4 pt-4">
-            <div class="w-8"></div> 
-            <h1 id="headerTitle" class="text-lg font-bold text-center flex-1">マイ単語帳 🚀</h1>
-            <button onclick="toggleDarkMode()" id="darkModeBtn" class="w-8 h-8 flex items-center justify-center text-xl bg-indigo-500 rounded-full active:scale-90 transition-transform">
-                🌙
-            </button>
+        <div class="max-w-md mx-auto text-center pt-4">
+            <h1 id="headerTitle" class="text-lg font-bold">マイ単語帳 🚀</h1>
         </div>
     </header>
 
@@ -65,12 +60,17 @@
         <div id="azSidebar" class="index-sidebar hidden"></div>
         
         <div id="sectionWordbook">
-            <div class="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-100 dark:border-slate-700/50 mb-4 transition-colors">
-                <label class="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1">システムモード</label>
-                <select id="modeSelect" onchange="changeMode()" class="w-full bg-slate-100 dark:bg-slate-700 px-2.5 py-2 rounded-lg font-bold text-slate-700 dark:text-slate-200 border-none text-sm focus:ring-2 focus:ring-indigo-500">
-                    <option value="normal">🔒 通常モード</option>
-                    <option value="ebbinghaus">🧠 忘却曲線(3日後)</option>
-                </select>
+            <div class="flex gap-2 items-end mb-4">
+                <div class="flex-1 bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-100 dark:border-slate-700/50 transition-colors">
+                    <label class="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1">システムモード</label>
+                    <select id="modeSelect" onchange="changeMode()" class="w-full bg-slate-100 dark:bg-slate-700 px-2.5 py-2 rounded-lg font-bold text-slate-700 dark:text-slate-200 border-none text-sm focus:ring-2 focus:ring-indigo-500">
+                        <option value="normal">🔒 通常モード</option>
+                        <option value="ebbinghaus">🧠 忘却曲線(3日後)</option>
+                    </select>
+                </div>
+                <button onclick="toggleDarkMode()" id="darkModeBtn" class="w-12 h-12 flex items-center justify-center text-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/50 rounded-xl shadow-sm active:scale-95 transition-all flex-shrink-0">
+                    🌙
+                </button>
             </div>
             
             <div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-700/50 mb-4 transition-colors">
@@ -128,9 +128,8 @@
     </nav>
 
     <script>
-        // 🚨【最重要】データ保護のため、これまでのキーを完全に維持！
         const STORAGE_KEY = 'myWordbookTrainV1';
-        const DARK_MODE_KEY = 'myWordbookDarkMode'; // ダークモードの状態を覚えるための新しいキー
+        const DARK_MODE_KEY = 'myWordbookDarkMode';
         
         let words = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
         let currentTab = 'learning';
@@ -142,13 +141,11 @@
 
         function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(words)); }
 
-        // 🆕 ダークモードの切り替え＆保存
         function toggleDarkMode() {
             const body = document.getElementById('appBody');
             const btn = document.getElementById('darkModeBtn');
             const isDark = body.classList.toggle('dark');
             
-            // Tailwindのダークモードクラスと、アイコンの見た目を切り替え
             if (isDark) {
                 document.documentElement.classList.add('dark');
                 btn.innerText = "☀️";
@@ -163,10 +160,8 @@
             renderWords();
         }
 
-        // 🆕 起動時に前回のダークモード設定を復元する
         function initDarkMode() {
             const savedDark = localStorage.getItem(DARK_MODE_KEY);
-            // スマホが夜間モード（ダークモード設定）の場合、またはアプリで前回ダークにした場合
             if (savedDark === 'true' || (!savedDark && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.getElementById('appBody').classList.add('dark');
                 document.documentElement.classList.add('dark');
@@ -302,7 +297,6 @@
                 }
 
                 const card = document.createElement('div');
-                // 🎨 ダークモード用のカード背景色と境界線を追加
                 card.className = "bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-700/50 flex justify-between items-center active:bg-slate-50 dark:active:bg-slate-750 tappable transition-colors";
                 
                 let actionBtn = "";
@@ -404,8 +398,7 @@
             if (changed) { save(); renderWords(); }
         }
 
-        // 初期化処理
-        initDarkMode(); // 💡 最初にダークモードの状態をチェック
+        initDarkMode();
         initSidebar();
         setInterval(() => { checkEbbinghausEffect(); renderWords(); }, 60000);
         renderWords();
