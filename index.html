@@ -185,7 +185,7 @@
             }
         }
 
-        // 🆕 改良版：スマホ内の「声データ」を検知して確実に日本語をセットする関数
+        // 🆕 改良：現在のモードに応じて日本語を喋るかどうか自動ジャッジ
         function speakWord(englishText, japaneseText, callback) {
             if (!window.speechSynthesis) return;
             window.speechSynthesis.cancel();
@@ -194,29 +194,32 @@
             englishUtterance.lang = 'en-US';
             englishUtterance.rate = 0.9;
 
-            // スマホが持っている声のリストを取得
             const voices = window.speechSynthesis.getVoices();
 
             const japaneseUtterance = new SpeechSynthesisUtterance(japaneseText);
             japaneseUtterance.lang = 'ja-JP';
             japaneseUtterance.rate = 1.0;
 
-            // リストの中から日本語（ja-JP）に合う声を見つけて強制セット
             const jaVoice = voices.find(v => v.lang.indexOf('ja') !== -1);
             if (jaVoice) {
                 japaneseUtterance.voice = jaVoice;
             }
 
             englishUtterance.onend = () => {
-                audioTimeoutId = setTimeout(() => {
-                    japaneseUtterance.onend = () => {
-                        if (callback) callback();
-                    };
-                    window.speechSynthesis.speak(japaneseUtterance);
-                }, 1000);
+                // 🆕 判定ガード：今の画面が「audio（読み上げモード）」のときだけ日本語を再生する
+                if (mainMode === 'audio') {
+                    audioTimeoutId = setTimeout(() => {
+                        japaneseUtterance.onend = () => {
+                            if (callback) callback();
+                        };
+                        window.speechSynthesis.speak(japaneseUtterance);
+                    }, 1000);
+                } else {
+                    // 単語帳モードや辞書モードで単発タップした時は、英語が終わったら即終了（コールバックを実行）
+                    if (callback) callback();
+                }
             };
 
-            // 英語の発声にも念のため英語用の声をセット
             const enVoice = voices.find(v => v.lang.indexOf('en') !== -1);
             if (enVoice) {
                 englishUtterance.voice = enVoice;
@@ -225,10 +228,8 @@
             window.speechSynthesis.speak(englishUtterance);
         }
 
-        // 声のリストが遅れて読み込まれるブラウザ向けの対策
         if (window.speechSynthesis && window.speechSynthesis.onvoiceschanged !== undefined) {
             window.speechSynthesis.onvoiceschanged = () => {
-                // 声データが更新されたことをブラウザに認識させる
                 window.speechSynthesis.getVoices();
             };
         }
@@ -567,7 +568,6 @@
             if (isShuffleMode) toggleShuffle(true); else renderWords();
         }
 
-        // （以下、既存の処理をそのまま100%保持しています）
         function updateStatus(index, status) {
             if(!words[index]) return;
             words[index].status = status;
