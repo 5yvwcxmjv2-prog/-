@@ -27,7 +27,7 @@
         .index-sidebar {
             position: fixed;
             right: 2px;
-            top: 140px;
+            top: 190px; /* 🆕 検索バー追加に伴い位置を少し下に調整 */
             bottom: 100px;
             display: flex;
             flex-direction: column;
@@ -60,6 +60,14 @@
     <main class="max-w-md mx-auto px-4 mt-4 relative">
         
         <div id="azSidebar" class="index-sidebar hidden"></div>
+        
+        <div id="searchBarGroup" class="mb-4">
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400 text-sm">🔍</span>
+                <input type="text" id="searchInput" oninput="onSearchInput()" placeholder="単語または意味で検索..." class="w-full pl-9 pr-8 py-2.5 text-sm rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 appearance-none shadow-sm">
+                <button id="searchClearBtn" onclick="clearSearch()" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hidden text-xs active:scale-90">✖</button>
+            </div>
+        </div>
         
         <div id="sectionWordbook">
             <div class="mb-4">
@@ -176,6 +184,8 @@
         let audioPlayIndex = 0;
         let audioTimeoutId = null;
         let currentDisplayObjects = [];
+        
+        let searchQuery = ""; // 🆕 検索文字を保持する変数
 
         function save() { 
             try {
@@ -185,28 +195,53 @@
             }
         }
 
-        // キーボード連携イベント設定用の初期化関数
         function initKeyboardShortcuts() {
             const wInput = document.getElementById('wordInput');
             const mInput = document.getElementById('meaningInput');
 
             if (wInput && mInput) {
-                // 英単語入力欄でEnterを押したとき
                 wInput.addEventListener('keydown', function(event) {
                     if (event.key === 'Enter') {
-                        event.preventDefault(); // 改行などのデフォルト動作を防止
-                        mInput.focus(); // 意味の入力欄にジャンプ
+                        event.preventDefault();
+                        mInput.focus();
                     }
                 });
 
-                // 意味入力欄でEnterを押したとき
                 mInput.addEventListener('keydown', function(event) {
                     if (event.key === 'Enter') {
                         event.preventDefault();
-                        addWord(); // 自動で追加処理を実行
+                        addWord();
                     }
                 });
             }
+        }
+
+        // 🆕 リアルタイム検索の入力イベント
+        function onSearchInput() {
+            const input = document.getElementById('searchInput');
+            const clearBtn = document.getElementById('searchClearBtn');
+            if (!input) return;
+            
+            searchQuery = input.value.trim().toLowerCase();
+            
+            // ✖ ボタンの表示切り替え
+            if (searchQuery.length > 0) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+            }
+            
+            renderWords();
+        }
+
+        // 🆕 検索文字をクリアする関数
+        function clearSearch() {
+            const input = document.getElementById('searchInput');
+            const clearBtn = document.getElementById('searchClearBtn');
+            if (input) input.value = "";
+            if (clearBtn) clearBtn.classList.add('hidden');
+            searchQuery = "";
+            renderWords();
         }
 
         function speakWord(englishText, japaneseText, callback) {
@@ -358,6 +393,9 @@
             document.getElementById('sectionDictionary').classList.toggle('hidden', mode !== 'dictionary');
             document.getElementById('azSidebar').classList.toggle('hidden', mode !== 'dictionary');
             
+            // 🆕 検索バーの表示切り替え（読み上げモードのときは非表示、それ以外は表示）
+            document.getElementById('searchBarGroup').classList.toggle('hidden', mode === 'audio');
+            
             let themeColor = 'text-indigo-600';
             if (currentMode === 'ebbinghaus') themeColor = 'text-emerald-600';
             if (mode === 'audio') themeColor = 'text-blue-600';
@@ -490,8 +528,17 @@
                 currentDisplayObjects = [...baseWords].sort((a, b) => a.item.word.toLowerCase().localeCompare(b.item.word.toLowerCase()));
             }
 
+            // 🆕 絞り込み処理：検索キーワードがある場合、英単語か意味に含むものだけを抽出
+            if (searchQuery.length > 0) {
+                currentDisplayObjects = currentDisplayObjects.filter(obj => {
+                    const wText = (obj.item.word || '').toLowerCase();
+                    const mText = (obj.item.meaning || '').toLowerCase();
+                    return wText.includes(searchQuery) || mText.includes(searchQuery);
+                });
+            }
+
             if (currentDisplayObjects.length === 0) {
-                listElement.innerHTML = `<div class="text-center py-10 text-slate-400 text-sm">データがありません</div>`;
+                listElement.innerHTML = `<div class="text-center py-10 text-slate-400 text-sm">該当する単語がありません</div>`;
                 return;
             }
 
@@ -586,9 +633,11 @@
             });
             w.value = ''; m.value = '';
             save(); 
+            
+            // 🆕 追加時に検索がかかっていたら自動でクリア（登録した単語がすぐ見えるようにするため）
+            clearSearch();
+            
             if (isShuffleMode) toggleShuffle(true); else renderWords();
-
-            // 🆕 追加後の快適処理：カーソル（フォーカス）を自動で「英単語」に戻す
             w.focus();
         }
 
@@ -617,7 +666,7 @@
         function editWord(index) {
             if(!words[index]) return;
             const w = prompt("英単語", words[index].word);
-            const m = prompt("意味", words[index].meaning);
+            const m = prompt("meaning", words[index].meaning);
             if (w && m) { words[index].word = w; words[index].meaning = m; save(); renderWords(); }
         }
 
@@ -675,7 +724,7 @@
 
         initSidebar();
         renderWords();
-        initKeyboardShortcuts(); // 🆕 キーボード連携イベントを起動
+        initKeyboardShortcuts();
         setInterval(() => { checkEbbinghausEffect(); renderWords(); }, 60000);
     </script>
 </body>
