@@ -185,6 +185,7 @@
             }
         }
 
+        // 🆕 改良版：スマホ内の「声データ」を検知して確実に日本語をセットする関数
         function speakWord(englishText, japaneseText, callback) {
             if (!window.speechSynthesis) return;
             window.speechSynthesis.cancel();
@@ -193,9 +194,18 @@
             englishUtterance.lang = 'en-US';
             englishUtterance.rate = 0.9;
 
+            // スマホが持っている声のリストを取得
+            const voices = window.speechSynthesis.getVoices();
+
             const japaneseUtterance = new SpeechSynthesisUtterance(japaneseText);
             japaneseUtterance.lang = 'ja-JP';
             japaneseUtterance.rate = 1.0;
+
+            // リストの中から日本語（ja-JP）に合う声を見つけて強制セット
+            const jaVoice = voices.find(v => v.lang.indexOf('ja') !== -1);
+            if (jaVoice) {
+                japaneseUtterance.voice = jaVoice;
+            }
 
             englishUtterance.onend = () => {
                 audioTimeoutId = setTimeout(() => {
@@ -206,7 +216,21 @@
                 }, 1000);
             };
 
+            // 英語の発声にも念のため英語用の声をセット
+            const enVoice = voices.find(v => v.lang.indexOf('en') !== -1);
+            if (enVoice) {
+                englishUtterance.voice = enVoice;
+            }
+
             window.speechSynthesis.speak(englishUtterance);
+        }
+
+        // 声のリストが遅れて読み込まれるブラウザ向けの対策
+        if (window.speechSynthesis && window.speechSynthesis.onvoiceschanged !== undefined) {
+            window.speechSynthesis.onvoiceschanged = () => {
+                // 声データが更新されたことをブラウザに認識させる
+                window.speechSynthesis.getVoices();
+            };
         }
 
         function startContinuousPlayback() {
@@ -245,7 +269,6 @@
             const obj = currentDisplayObjects[audioPlayIndex];
             document.getElementById('audioStatusText').innerText = `🎵 再生中 (${audioPlayIndex + 1}/${currentDisplayObjects.length}): ${obj.item.word}`;
 
-            // 元からある1回再生用の関数（英語➔日本語）をそのまま使って次の語へ繋げます
             speakWord(obj.item.word, obj.item.meaning, () => {
                 audioTimeoutId = setTimeout(() => {
                     audioPlayIndex++;
@@ -353,7 +376,6 @@
             renderWords();
         }
 
-        // 残り日数の判定
         function getRemainingDays(masteredAt) {
             if (!masteredAt) return 0;
             const now = Date.now();
@@ -482,7 +504,6 @@
                 card.id = `card-${localIndex}`;
                 card.className = "bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex justify-between items-center active:bg-slate-50 tappable";
                 
-                // 🆕 修正点：mainModeが'audio'のときはバッジを完全に非表示(空)にする
                 let actionBtn = "";
                 if (mainMode === 'wordbook') {
                     actionBtn = item.status === 'learning' 
@@ -546,6 +567,7 @@
             if (isShuffleMode) toggleShuffle(true); else renderWords();
         }
 
+        // （以下、既存の処理をそのまま100%保持しています）
         function updateStatus(index, status) {
             if(!words[index]) return;
             words[index].status = status;
@@ -627,7 +649,6 @@
             if (changed) { save(); renderWords(); }
         }
 
-        // 初期起動
         initSidebar();
         renderWords();
         setInterval(() => { checkEbbinghausEffect(); renderWords(); }, 60000);
