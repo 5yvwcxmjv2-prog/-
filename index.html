@@ -113,7 +113,7 @@
 
         <div id="sectionAudioMode" class="hidden">
             <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 mb-4 text-center">
-                <p class="text-xs text-slate-400 font-bold mb-2">ハンズフリー連続再生</p>
+                <p class="text-xs text-slate-400 font-bold mb-2">ハンズフリー連続再生（英語 ➔ 日本語）</p>
                 <div class="flex justify-center gap-2">
                     <button id="startAudioBtn" onclick="startContinuousPlayback()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl text-sm shadow-md flex items-center gap-2 transition-all">
                         <span>▶️ 自動読み上げスタート</span>
@@ -185,6 +185,7 @@
             }
         }
 
+        // 基本の音声読み上げ関数
         function speakWord(englishText, japaneseText, callback) {
             if (!window.speechSynthesis) return;
             window.speechSynthesis.cancel();
@@ -198,11 +199,10 @@
             japaneseUtterance.rate = 1.0;
 
             englishUtterance.onend = () => {
-                if (!isAudioPlaying && !callback) return;
-                
+                // 連続再生時、または単発再生時のいずれでも英語のあとに日本語を喋らせる
                 audioTimeoutId = setTimeout(() => {
                     japaneseUtterance.onend = () => {
-                        if (callback) callback();
+                        if (callback) callback(); // 連続再生のときは次の単語へ
                     };
                     window.speechSynthesis.speak(japaneseUtterance);
                 }, 1000);
@@ -247,6 +247,7 @@
             const obj = currentDisplayObjects[audioPlayIndex];
             document.getElementById('audioStatusText').innerText = `🎵 再生中 (${audioPlayIndex + 1}/${currentDisplayObjects.length}): ${obj.item.word}`;
 
+            // 英語 ➔ 1秒 ➔ 日本語を喋り終わった後、1.5秒あけて次の単語へ進む
             speakWord(obj.item.word, obj.item.meaning, () => {
                 audioTimeoutId = setTimeout(() => {
                     audioPlayIndex++;
@@ -293,6 +294,7 @@
             }
         }
 
+        // スムーススクロール用
         function scrollToLetter(letter) {
             const target = document.getElementById(`heading-${letter.toLowerCase()}`);
             if (target) {
@@ -482,11 +484,14 @@
                 card.id = `card-${localIndex}`;
                 card.className = "bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex justify-between items-center active:bg-slate-50 tappable";
                 
+                // 🆕 読み上げモードの時だけ、右側の習得済み／未習得バッジの表示をカット
                 let actionBtn = "";
                 if (mainMode === 'wordbook') {
                     actionBtn = item.status === 'learning' 
                         ? `<button onclick="updateStatus(${originalIndex}, 'mastered')" class="bg-emerald-50 text-emerald-600 border border-emerald-100/50 font-bold py-3 px-4 rounded-xl text-xs whitespace-nowrap min-w-[70px]">✓ 覚えた</button>`
                         : `<button onclick="updateStatus(${originalIndex}, 'learning')" class="bg-slate-100 text-slate-600 font-medium py-2 px-3 text-[10px] rounded-lg whitespace-nowrap">戻す</button>`;
+                } else if (mainMode === 'audio') {
+                    actionBtn = ""; // 読み上げモード時は右側を完全に空にする
                 } else {
                     actionBtn = `<span class="text-[9px] font-bold px-2 py-1 rounded whitespace-nowrap ${item.status === 'learning' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}">${item.status === 'learning' ? '未習得' : '習得済'}</span>`;
                 }
@@ -529,105 +534,4 @@
             const w = document.getElementById('wordInput');
             const m = document.getElementById('meaningInput');
             if (!w || !m) return;
-            if (!w.value.trim() || !m.value.trim()) return alert("入力してください");
-            
-            words.unshift({ 
-                word: w.value.trim(), 
-                meaning: m.value.trim(), 
-                status: 'learning', 
-                masteredAt: null, 
-                inAudioMode: false 
-            });
-            w.value = ''; m.value = '';
-            save(); 
-            if (isShuffleMode) toggleShuffle(true); else renderWords();
-        }
-
-        function updateStatus(index, status) {
-            if(!words[index]) return;
-            words[index].status = status;
-            words[index].masteredAt = (status === 'mastered') ? Date.now() : null;
-            save(); renderWords();
-        }
-
-        function toggleBlur(index) {
-            if (mainMode === 'audio') return;
-            const el = document.getElementById(`meaning-${index}`);
-            if(el) el.classList.toggle('blur-fix');
-        }
-
-        function deleteWord(index) {
-            if(!words[index]) return;
-            if(confirm("削除しますか？")) { 
-                words.splice(index, 1); 
-                save(); 
-                if (isShuffleMode) toggleShuffle(true); else renderWords();
-            }
-        }
-
-        function editWord(index) {
-            if(!words[index]) return;
-            const w = prompt("英単語", words[index].word);
-            const m = prompt("意味", words[index].meaning);
-            if (w && m) { words[index].word = w; words[index].meaning = m; save(); renderWords(); }
-        }
-
-        function switchTab(tab) { 
-            currentTab = tab; 
-            const tl = document.getElementById('tabLearning');
-            const tm = document.getElementById('tabMastered');
-            if(!tl || !tm) return;
-            
-            const activeTextColor = currentMode === 'ebbinghaus' ? 'text-emerald-600' : 'text-indigo-600';
-
-            if(tab === 'learning') {
-                tl.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white ${activeTextColor} shadow-sm`;
-                tm.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-500 bg-transparent`;
-            } else {
-                tl.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all text-slate-500 bg-transparent`;
-                tm.className = `w-1/2 py-2.5 text-xs font-bold rounded-lg transition-all bg-white ${activeTextColor} shadow-sm`;
-            }
-            updateFilterBarVisibility();
-            renderWords(); 
-        }
-        
-        function changeMode() { 
-            const selectEl = document.getElementById('modeSelect');
-            if(!selectEl) return;
-            currentMode = selectEl.value; 
-            
-            const header = document.getElementById('appHeader');
-            const addBtn = document.getElementById('addWordBtn');
-            
-            if (currentMode === 'ebbinghaus') {
-                if(header) header.className = "bg-emerald-600 text-white shadow-md sticky top-0 z-[100] transition-colors duration-300";
-                if(addBtn) addBtn.className = "w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl shadow-sm active:opacity-80 transition-colors duration-300";
-            } else {
-                if(header) header.className = "bg-indigo-600 text-white shadow-md sticky top-0 z-[100] transition-colors duration-300";
-                if(addBtn) addBtn.className = "w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-sm active:opacity-80 transition-colors duration-300";
-            }
-            
-            changeDayFilter('all');
-            switchTab(currentTab);
-            switchMainMode(mainMode);
-            toggleShuffle(isShuffleMode);
-        }
-
-        function checkEbbinghausEffect() {
-            const now = Date.now();
-            let changed = false;
-            words.forEach(w => {
-                if (w && currentMode === 'ebbinghaus' && w.status === 'mastered' && w.masteredAt && (now - w.masteredAt > 72*3600000)) {
-                    w.status = 'learning'; w.masteredAt = null; changed = true;
-                }
-            });
-            if (changed) { save(); renderWords(); }
-        }
-
-        // 初期起動処理
-        initSidebar();
-        renderWords();
-        setInterval(() => { checkEbbinghausEffect(); renderWords(); }, 60000);
-    </script>
-</body>
-</html>
+            if (!w
