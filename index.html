@@ -113,7 +113,7 @@
 
         <div id="sectionAudioMode" class="hidden">
             <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 mb-4 text-center">
-                <p class="text-xs text-slate-400 font-bold mb-2">ハンズフリー連続再生</p>
+                <p class="text-xs text-slate-400 font-bold mb-2">ハンズフリー連続再生（英語 ➔ 日本語）</p>
                 <div class="flex justify-center gap-2">
                     <button id="startAudioBtn" onclick="startContinuousPlayback()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl text-sm shadow-md flex items-center gap-2 transition-all">
                         <span>▶️ 自動読み上げスタート</span>
@@ -198,8 +198,6 @@
             japaneseUtterance.rate = 1.0;
 
             englishUtterance.onend = () => {
-                if (!isAudioPlaying && !callback) return;
-                
                 audioTimeoutId = setTimeout(() => {
                     japaneseUtterance.onend = () => {
                         if (callback) callback();
@@ -247,6 +245,7 @@
             const obj = currentDisplayObjects[audioPlayIndex];
             document.getElementById('audioStatusText').innerText = `🎵 再生中 (${audioPlayIndex + 1}/${currentDisplayObjects.length}): ${obj.item.word}`;
 
+            // 元からある1回再生用の関数（英語➔日本語）をそのまま使って次の語へ繋げます
             speakWord(obj.item.word, obj.item.meaning, () => {
                 audioTimeoutId = setTimeout(() => {
                     audioPlayIndex++;
@@ -354,6 +353,7 @@
             renderWords();
         }
 
+        // 残り日数の判定
         function getRemainingDays(masteredAt) {
             if (!masteredAt) return 0;
             const now = Date.now();
@@ -482,11 +482,14 @@
                 card.id = `card-${localIndex}`;
                 card.className = "bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex justify-between items-center active:bg-slate-50 tappable";
                 
+                // 🆕 修正点：mainModeが'audio'のときはバッジを完全に非表示(空)にする
                 let actionBtn = "";
                 if (mainMode === 'wordbook') {
                     actionBtn = item.status === 'learning' 
                         ? `<button onclick="updateStatus(${originalIndex}, 'mastered')" class="bg-emerald-50 text-emerald-600 border border-emerald-100/50 font-bold py-3 px-4 rounded-xl text-xs whitespace-nowrap min-w-[70px]">✓ 覚えた</button>`
                         : `<button onclick="updateStatus(${originalIndex}, 'learning')" class="bg-slate-100 text-slate-600 font-medium py-2 px-3 text-[10px] rounded-lg whitespace-nowrap">戻す</button>`;
+                } else if (mainMode === 'audio') {
+                    actionBtn = ""; 
                 } else {
                     actionBtn = `<span class="text-[9px] font-bold px-2 py-1 rounded whitespace-nowrap ${item.status === 'learning' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}">${item.status === 'learning' ? '未習得' : '習得済'}</span>`;
                 }
@@ -624,7 +627,7 @@
             if (changed) { save(); renderWords(); }
         }
 
-        // 初期起動処理
+        // 初期起動
         initSidebar();
         renderWords();
         setInterval(() => { checkEbbinghausEffect(); renderWords(); }, 60000);
