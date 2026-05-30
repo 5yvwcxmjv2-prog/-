@@ -75,8 +75,8 @@
             <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 mb-4">
                 <div class="flex flex-col gap-3">
                     <div class="flex gap-2">
-                        <input type="text" id="wordInput" placeholder="英単語" class="w-1/2 px-3 py-3 text-base rounded-lg border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 appearance-none">
-                        <input type="text" id="meaningInput" placeholder="意味" class="w-1/2 px-3 py-3 text-base rounded-lg border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 appearance-none">
+                        <input type="text" id="wordInput" placeholder="英単語" enterkeyhint="next" class="w-1/2 px-3 py-3 text-base rounded-lg border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 appearance-none">
+                        <input type="text" id="meaningInput" placeholder="意味" enterkeyhint="done" class="w-1/2 px-3 py-3 text-base rounded-lg border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 appearance-none">
                     </div>
                     <button id="addWordBtn" onclick="addWord()" class="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-sm active:opacity-80 transition-colors duration-300">
                         単語帳に追加する
@@ -185,7 +185,30 @@
             }
         }
 
-        // 🆕 改良：現在のモードに応じて日本語を喋るかどうか自動ジャッジ
+        // キーボード連携イベント設定用の初期化関数
+        function initKeyboardShortcuts() {
+            const wInput = document.getElementById('wordInput');
+            const mInput = document.getElementById('meaningInput');
+
+            if (wInput && mInput) {
+                // 英単語入力欄でEnterを押したとき
+                wInput.addEventListener('keydown', function(event) {
+                    if (event.key === 'Enter') {
+                        event.preventDefault(); // 改行などのデフォルト動作を防止
+                        mInput.focus(); // 意味の入力欄にジャンプ
+                    }
+                });
+
+                // 意味入力欄でEnterを押したとき
+                mInput.addEventListener('keydown', function(event) {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                        addWord(); // 自動で追加処理を実行
+                    }
+                });
+            }
+        }
+
         function speakWord(englishText, japaneseText, callback) {
             if (!window.speechSynthesis) return;
             window.speechSynthesis.cancel();
@@ -206,7 +229,6 @@
             }
 
             englishUtterance.onend = () => {
-                // 🆕 判定ガード：今の画面が「audio（読み上げモード）」のときだけ日本語を再生する
                 if (mainMode === 'audio') {
                     audioTimeoutId = setTimeout(() => {
                         japaneseUtterance.onend = () => {
@@ -215,7 +237,6 @@
                         window.speechSynthesis.speak(japaneseUtterance);
                     }, 1000);
                 } else {
-                    // 単語帳モードや辞書モードで単発タップした時は、英語が終わったら即終了（コールバックを実行）
                     if (callback) callback();
                 }
             };
@@ -566,6 +587,9 @@
             w.value = ''; m.value = '';
             save(); 
             if (isShuffleMode) toggleShuffle(true); else renderWords();
+
+            // 🆕 追加後の快適処理：カーソル（フォーカス）を自動で「英単語」に戻す
+            w.focus();
         }
 
         function updateStatus(index, status) {
@@ -651,6 +675,7 @@
 
         initSidebar();
         renderWords();
+        initKeyboardShortcuts(); // 🆕 キーボード連携イベントを起動
         setInterval(() => { checkEbbinghausEffect(); renderWords(); }, 60000);
     </script>
 </body>
